@@ -11,7 +11,7 @@ import os
 from os.path import join, basename, splitext
 from models.build4 import build_model, ImagePool
 # from models.Generator_former import Generator_former
-from utils.loss import IDMRFLoss
+from utils.loss import *
 from models.Discriminator_ml import MsImageDis
 # from utils.utils import gaussian_weight
 from tensorboardX import SummaryWriter
@@ -147,7 +147,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, recognizer, t
         # ## Update Generator
         gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
 
-        # 24.09.19 Recognition Loss, 24.10.14 original kd loss
+        # 24.10.14 original kd loss
         gen_loss = pixel_rec_loss + gen_adv_loss + feat_rec_loss + mrf_loss.cuda(0) + total_ssim_loss + original_kd_loss
         opt_gen.zero_grad()
         gen_loss.backward()
@@ -310,11 +310,10 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
 if __name__ == '__main__':
 
-    SAVE_WEIGHT_DIR = r'D:\DION4FR\original_kd\output\HKdb-2\checkpoints'  # 24.09.25 HKdb-2
-    SAVE_LOG_DIR = r'D:\DION4FR\original_kd\output\HKdb-2\logs_all'  # 24.09.25 HKdb-2
-    LOAD_WEIGHT_DIR = r'D:\DION4FR\original_kd\output\HKdb-2\checkpoints'  # 24.09.25 HKdb-2
-    LOAD_REC_WEIGHT_DIR = r'C:\Users\8138\PycharmProjects\DION4FR_student_test\recognition\Output\HKPU_B\checkpoints\3EPOCH.pt'  # 24.09.25 HKdb-2
-    LOAD_TEACHER_WEIGHT_DIR = r'D:\DION4FR\rec_loss_1\output\HKdb-2\checkpoints\Gen_former_224.pt'  # best epoch의 weight 기입해야함!!!!!!
+    SAVE_WEIGHT_DIR = '/content/drive/MyDrive/original_kd/output/HKdb-2/checkpoints'  # 24.09.25 HKdb-2
+    SAVE_LOG_DIR = '/content/drive/MyDrive/original_kd/output/HKdb-2/logs_all'  # 24.09.25 HKdb-2
+    LOAD_WEIGHT_DIR = '/content/drive/MyDrive/original_kd/output/HKdb-2/checkpoints'  # 24.09.25 HKdb-2
+    LOAD_TEACHER_WEIGHT_DIR = '/content/original_kd/output/HKdb-2/checkpoints/Gen_former_????.pt'  # best epoch의 weight 기입해야함!!!!!!, 압축 파일 새로!!!
     TRAIN_DATA_DIR = ''
 
     seed_everything(2024)  # Seed 고정
@@ -344,9 +343,8 @@ if __name__ == '__main__':
         parser.add_argument('--train_data_dir', type=str, help='directory of training data', default=TRAIN_DATA_DIR)
         # parser.add_argument('--test_data_dir', type=str, help='directory of testing data', default=TEST_DATA_DIR)
         # parser.add_argument('--gpu', type=str, help='gpu device', default='0')
-        parser.add_argument('--load_rec_weight_dir', type=str, help='directory of recognition model weight', default=LOAD_REC_WEIGHT_DIR)  # 24.09.19 Recognition weight dir
-        parser.add_argument('--load_teacher_weight_dir', type=str, help='directory of recognition model weight',
-                            default=LOAD_TEACHER_WEIGHT_DIR)  # 24.09.19 Recognition weight dir
+        parser.add_argument('--load_teacher_weight_dir', type=str, help='directory of teacher model weight',
+                            default=LOAD_TEACHER_WEIGHT_DIR)  # 24.09.19 Teacher model weight dir
 
         opts = parser.parse_args()
         return opts
@@ -402,14 +400,14 @@ if __name__ == '__main__':
     teacher_gen.eval()  # 학습 모드가 아닌 평가 모드로 설정
 
     ## 2023 11 08 class-wise하게 8:2로 나눠줌
-    base_dir = r'C:\Users\8138\Desktop\SD&HK finger-vein DB'
-    HKdb_dir = r'HK-db\HKdb_2'  # 24.10.05 HKDB-2
-    SDdb_dir = r'SD-db\SDdb_1'
+    base_dir = '/content'
+    HKdb_dir = 'HK-db/HKdb_2'  # 24.11.04 HKDB-2
+    SDdb_dir = 'SD-db/SDdb_1'  # 24.10.16 SDDB-1
 
     # 각 서브 폴더의 경로를 설정
-    original_dir = join(base_dir, 'original_images_split', HKdb_dir)
-    mask_dir = join(base_dir, 'mask_images_split_con', HKdb_dir)
-    clahe_dir = join(base_dir, 'clahe_images_split', HKdb_dir)
+    original_dir = join(base_dir, 'original_images_split', HKdb_dir)  
+    mask_dir = join(base_dir, 'mask_images_split_con', HKdb_dir)  
+    clahe_dir = join(base_dir, 'clahe_images_split', HKdb_dir)  # 24.11.04 HKDB-2
 
     # 각 디렉토리가 존재하는지 확인
     assert os.path.isdir(original_dir), f"Original directory does not exist: {original_dir}"
