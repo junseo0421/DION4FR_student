@@ -66,12 +66,14 @@ class MultiHeadSelfAttention(nn.Module):
         x = x.view(B, H * W, C)  # Flatten (B, H*W, C)
 
         # Query, Key, Value 계산
-        q = self.query(x).view(B, H * W, self.num_heads, self.dim_per_head).transpose(1, 2)
-        k = self.key(x).view(B, H * W, self.num_heads, self.dim_per_head).transpose(1, 2)
-        v = self.value(x).view(B, H * W, self.num_heads, self.dim_per_head).transpose(1, 2)
+        q = self.query(x).view(B, H * W, self.num_heads, self.dim_per_head)
+        k = self.key(x).view(B, H * W, self.num_heads, self.dim_per_head)
+        v = self.value(x).view(B, H * W, self.num_heads, self.dim_per_head)
 
         # residual 추가
         residual = v.view(B, H * W, -1)
+
+        q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
 
         out, attn = self.attention(q, k, v)
 
