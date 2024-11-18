@@ -870,39 +870,39 @@ class ResnetBlock(nn.Module):
         out = x + self.conv_block(x)
         return out
 
-## 24.10.31 simple TSP module
-class Conv1D_With_1x1Conv(nn.Module):
-    def __init__(self, channels, conv1d_kernel_size=3, stride=1, padding=1):
-        super(Conv1D_With_1x1Conv, self).__init__()
+# ## 24.10.31 simple TSP module
+# class Conv1D_With_1x1Conv(nn.Module):
+#     def __init__(self, channels, conv1d_kernel_size=3, stride=1, padding=1):
+#         super(Conv1D_With_1x1Conv, self).__init__()
 
-        # 1x1 Conv: 채널 수를 유지하며 중요도 조정
-        self.conv1x1 = nn.Conv2d(channels, channels, kernel_size=1)
+#         # 1x1 Conv: 채널 수를 유지하며 중요도 조정
+#         self.conv1x1 = nn.Conv2d(channels, channels, kernel_size=1)
 
-        # Conv1D: 채널 수 유지하며 각 위치 간 상호작용 적용, lstm보다는 global한 상호작용을 찾기 힘들 듯 -> self-attention 사용
-        self.conv1d = nn.Conv1d(channels, channels, kernel_size=conv1d_kernel_size, stride=stride, padding=padding)
+#         # Conv1D: 채널 수 유지하며 각 위치 간 상호작용 적용, lstm보다는 global한 상호작용을 찾기 힘들 듯 -> self-attention 사용
+#         self.conv1d = nn.Conv1d(channels, channels, kernel_size=conv1d_kernel_size, stride=stride, padding=padding)
 
-        # Layer Normalization
-        self.norm = nn.LayerNorm(channels)
+#         # Layer Normalization
+#         self.norm = nn.LayerNorm(channels)
 
-    def forward(self, x):
-        # 1. 입력 크기: (B, H, W, C)
-        B, H, W, C = x.size()
+#     def forward(self, x):
+#         # 1. 입력 크기: (B, H, W, C)
+#         B, H, W, C = x.size()
 
-        # 2. 1x1 Conv 적용
-        x = x.permute(0, 3, 1, 2)  # (B, C, H, W) 형태로 변환
-        x = self.conv1x1(x)  # (B, C, H, W) - 채널 수 유지
+#         # 2. 1x1 Conv 적용
+#         x = x.permute(0, 3, 1, 2)  # (B, C, H, W) 형태로 변환
+#         x = self.conv1x1(x)  # (B, C, H, W) - 채널 수 유지
 
-        # 3. Conv1D 적용을 위해 (B, C, H*W) 형태로 변환
-        x = x.view(B, C, H * W)  # (B, C, H*W)
-        x = self.conv1d(x)  # Conv1D로 채널 간 상호작용 적용 - 채널 수 유지
+#         # 3. Conv1D 적용을 위해 (B, C, H*W) 형태로 변환
+#         x = x.view(B, C, H * W)  # (B, C, H*W)
+#         x = self.conv1d(x)  # Conv1D로 채널 간 상호작용 적용 - 채널 수 유지
 
-        # 4. 정규화 적용
-        x = x.permute(0, 2, 1)  # (B, H*W, C)
-        x = self.norm(x)
+#         # 4. 정규화 적용
+#         x = x.permute(0, 2, 1)  # (B, H*W, C)
+#         x = self.norm(x)
 
-        # 5. 원래 이미지 차원으로 복원
-        x = x.view(B, H, W, C)  # (B, H, W, C) - 원래 채널 수 유지
-        return x
+#         # 5. 원래 이미지 차원으로 복원
+#         x = x.view(B, H, W, C)  # (B, H, W, C) - 원래 채널 수 유지
+#         return x
 
 # class SimplifiedTSP(nn.Module):
 #     def __init__(self, pre_step, size=[768, 4, 4]):
