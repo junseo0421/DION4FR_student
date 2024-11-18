@@ -70,7 +70,6 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, recognizer, t
     # mse = nn.MSELoss().cuda(0)
     mae = nn.L1Loss().cuda(0)  # 평균 절대 오차(MAE)를 사용하여 픽셀 간의 차이 계산
     mrf = IDMRFLoss(device=0)  # 텍스처 일관성 평가
-    fsp = FSP().cuda(0)  # 24.10.15 fsp loss
     ssim_loss = SSIM_loss().cuda(0)  # 구조적 유사성
 
     acc_pixel_rec_loss = 0
@@ -81,14 +80,12 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, recognizer, t
     acc_dis_adv_loss = 0
     acc_ssim_loss = 0
     acc_original_kd_loss = 0 # 24.10.14 original KD loss
-    # acc_fsp_loss = 0  # 24.10.15 fsp loss
 
     total_gen_loss = 0
 
-    for batch_idx, (gt, mask_img, random_matching_list) in enumerate(train_loader):  # 24.09.20 수정
+    for batch_idx, (gt, mask_img) in enumerate(train_loader):  # 24.09.20 수정
         batchSize = mask_img.shape[0]
         imgSize = mask_img.shape[2]
-        # print(batch_idx, ":", random_matching_list)
 
         # gt, mask_img, iner_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0), Variable(iner_img).cuda(0)
         gt, mask_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0)
@@ -196,7 +193,6 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
     # mse = nn.MSELoss().cuda(0)
     mae = nn.L1Loss().cuda(0)
     mrf = IDMRFLoss(device=0)
-    fsp = FSP().cuda(0)  # 24.10.15 fsp loss
     ssim_loss = SSIM_loss().cuda(0)
 
     acc_pixel_rec_loss = 0
@@ -207,11 +203,10 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
     acc_dis_adv_loss = 0
     acc_ssim_loss = 0
     acc_original_kd_loss = 0  # 24.10.14 original KD loss
-    # acc_fsp_loss = 0  # 24.10.15 fsp loss
 
     total_gen_loss = 0
 
-    for batch_idx, (gt, mask_img, random_matching_list) in enumerate(valid_loader):  # 24.09.19 labels 추가 / 관련 matching 수정 필요
+    for batch_idx, (gt, mask_img) in enumerate(valid_loader):  # 24.09.19 labels 추가 / 관련 matching 수정 필요
         batchSize = mask_img.shape[0]
         imgSize = mask_img.shape[2]
 
@@ -309,11 +304,25 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                        epoch)
 
 if __name__ == '__main__':
+    NAME_DATASET = 'HKdb-1'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/original_kd/output'
 
-    SAVE_WEIGHT_DIR = '/content/drive/MyDrive/original_kd/output/HKdb-2/checkpoints'  # 24.09.25 HKdb-2
-    SAVE_LOG_DIR = '/content/drive/MyDrive/original_kd/output/HKdb-2/logs_all'  # 24.09.25 HKdb-2
-    LOAD_WEIGHT_DIR = '/content/drive/MyDrive/original_kd/output/HKdb-2/checkpoints'  # 24.09.25 HKdb-2
-    LOAD_TEACHER_WEIGHT_DIR = '/content/original_kd/output/HKdb-2/checkpoints/Gen_former_????.pt'  # best epoch의 weight 기입해야함!!!!!!, 압축 파일 새로!!!
+    SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')  # 24.09.25 HKdb-2
+    SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'logs_all')  # 24.09.25 HKdb-2
+    LOAD_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')  # 24.09.25 HKdb-2
+
+    if NAME_DATASET == 'HKdb-1':
+        best_epoch = 350
+    elif NAME_DATASET == 'HKdb-2':
+        best_epoch = 378
+    elif NAME_DATASET == 'SDdb-1':
+        best_epoch = 340
+    elif NAME_DATASET == 'SDdb-2':
+        best_epoch = 500
+    else:
+        raise Exception("에러 메시지 : 잘못된 NAME_DATASET이 입력되었습니다.")
+
+    LOAD_TEACHER_WEIGHT_DIR = join('/content/mask_change_best_epoch', NAME_DATASET, f'Gen_former_{best_epoch}.pt')
     TRAIN_DATA_DIR = ''
 
     seed_everything(2024)  # Seed 고정
@@ -325,7 +334,7 @@ if __name__ == '__main__':
 
         parser.add_argument('--train_batch_size', type=int, help='batch size of training data', default=2)
         parser.add_argument('--test_batch_size', type=int, help='batch size of testing data', default=16)
-        parser.add_argument('--epochs', type=int, help='number of epoches', default=2000)
+        parser.add_argument('--epochs', type=int, help='number of epoches', default=700)
         parser.add_argument('--lr', type=float, help='learning rate', default=0.0004)
         parser.add_argument('--alpha', type=float, help='learning rate decay for discriminator', default=0.1)
         parser.add_argument('--load_pretrain', type=bool, help='load pretrain weight', default=False)  # pretrain !!
@@ -401,13 +410,20 @@ if __name__ == '__main__':
 
     ## 2023 11 08 class-wise하게 8:2로 나눠줌
     base_dir = '/content'
-    HKdb_dir = 'HK-db/HKdb_2'  # 24.11.04 HKDB-2
-    SDdb_dir = 'SD-db/SDdb_1'  # 24.10.16 SDDB-1
+    
+    if NAME_DATASET == 'HKdb-1' or 'HKdb-2':
+        modified_NAME_DATASET = NAME_DATASET.replace('-', '_')
+        db_dir = join('HK-db', modified_NAME_DATASET)
+    elif NAME_DATASET == 'SDdb-1' or 'SDdb-2':
+        modified_NAME_DATASET = NAME_DATASET.replace('-', '_')
+        db_dir = join('SD-db', modified_NAME_DATASET)
+    else:
+        raise Exception("에러 메시지 : 잘못된 db_dir이 입력되었습니다.")
 
     # 각 서브 폴더의 경로를 설정
-    original_dir = join(base_dir, 'original_images_split', HKdb_dir)  
-    mask_dir = join(base_dir, 'mask_images_split_con', HKdb_dir)  
-    clahe_dir = join(base_dir, 'clahe_images_split', HKdb_dir)  # 24.11.04 HKDB-2
+    original_dir = join(base_dir, 'original_images_split', db_dir)  
+    mask_dir = join(base_dir, 'mask_images_split_con', db_dir)  
+    clahe_dir = join(base_dir, 'clahe_images_split', db_dir)  # 24.11.04 HKDB-2
 
     # 각 디렉토리가 존재하는지 확인
     assert os.path.isdir(original_dir), f"Original directory does not exist: {original_dir}"

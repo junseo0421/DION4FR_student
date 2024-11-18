@@ -80,8 +80,6 @@ class dataset_norm(Dataset):
         self.imgSize = imgSize
         self.inputsize = inputsize
 
-        self.csvfile = r'C:\Users\8138\PycharmProjects\DION4FR_modified\recognition\Datasets\DS_TEST_bad(B)\registerds.csv'  # 24.10.05 HKDB-2
-
         self.img_list1 = imglist1
         self.img_list2 = imglist2
         self.img_list3 = imglist3
@@ -93,100 +91,10 @@ class dataset_norm(Dataset):
 
         self.size = len(self.img_list1)
 
-    def image_name_change(self, img_name):
-        parts = img_name.split('_')
-
-        finger_part = parts[1]
-        class_part = parts[2]
-        new_class_part = f"{int(class_part)}"
-        f_order_part = parts[3]
-
-        new_filename = f"0_{new_class_part}_{f_order_part}_{finger_part}.bmp"
-
-        return new_filename
-
     def __getitem__(self, index):
         # --RETURN--
         # input1(left), input2(right), groundtruth of the intermediate region
         index = index % self.size
-
-        # 24.09.20 수정. mathcing label과 img name 받아오기
-        directory = self.img_list1[index]  # 학습에 사용하는 image의 경로 받아오기
-        name_base = os.path.basename(directory)
-        name_base = self.image_name_change(name_base)  # matching list와 다른 파일명 맞춰주기
-        # print(f"Checking for file: {name_base}")
-
-        csvfile = pd.read_csv(self.csvfile, header=None)  # matching이 쓰일 csv 파일 불러오기
-
-        # print(csvfile)  # csv 파일은 잘 읽음
-
-        final_list = []
-        auth_matching_num = 1  # auth 매칭 개수
-        impo_matching_num = 1  # impo 매칭 개수
-
-        samelist = csvfile.iloc[:, 1].str.contains(name_base, na=False)  # 2열에서 searching
-
-        # print(samelist)  # 부울 리스트로 잘 읽음
-
-        if samelist.any():  # 2열 기준
-            authlist = csvfile[samelist]  # 5개의 성분을 가진 Dataframe
-            impolist = csvfile[~samelist]
-
-            # 만약 authlist와 impolist가 비어있지 않으면 값을 추가
-            if not authlist.empty:
-                authlist_random = authlist.sample(n=auth_matching_num)  # auth 매칭 개수만큼 random으로 행 선택
-                authlist_values = [[0, value] for value in authlist_random.iloc[:, 2].tolist()]  # auth label 0으로 추가, mathching dir
-            else:
-                print("authlist가 비어 있습니다.")
-
-            if not impolist.empty:
-                impolist_random = impolist.sample(n=impo_matching_num)  # impo 매칭 개수만큼 random으로 행 선택
-                impolist_values = [[1, value] for value in impolist_random.iloc[:, 2].tolist()]  # impo label 1로 추가, mathching dir
-            else:
-                print("impolist가 비어 있습니다.")
-
-            # 두 리스트를 합쳐서 최종 리스트 생성
-            final_list = authlist_values + impolist_values
-
-            if len(final_list) != (auth_matching_num + impo_matching_num):
-                print(f"Warning: final_list의 크기가 2가 아닙니다. 현재 크기: {len(final_list)}")
-                print(f"final_list 내용: {final_list}")
-
-        if not samelist.any():  # 3열 기준
-            # print(f"'{name_base}' not found in primary_column, searching in secondary_column instead.")
-
-            #### 2th fold 일 때 클래스 부분 조정해줘야함!!!! 이외에는 0 ####
-            class_add = 156  # HKdb-2 기준
-            # class_add = 318  # SDdb-2 기준
-
-            class_base = str(int(directory.replace('\\', '/').split('/')[-2]) + class_add)  # 클래스 부분 추출
-            classlist = csvfile.iloc[:, 2].str.contains(class_base, na=False)    # class 기준으로 찾기, 5개의 True
-            # print(classlist)  # 잘 나옴
-
-            if classlist.any():
-                samelist = csvfile[classlist]  # class 기준 5개의 성분 list
-                # print(samelist)  # 잘 나옴
-                impolist = csvfile[~classlist]
-                if not samelist.empty:
-                    authlist = samelist.iloc[:, 2].str.contains(name_base, na=False)  # 1개의 성분을 가진 bool list,
-                    authlist_random = samelist[authlist]  # 위와 변수 이름을 맞춰주기 위해 random 기입.
-                    # print(authlist_random)
-                    authlist_values = [[0, value] for value in authlist_random.iloc[:, 1].tolist()]
-                    # print(authlist_values)
-                if not impolist.empty:
-                    impolist_random = impolist.sample(n=impo_matching_num)
-                    impolist_values = [[1, value] for value in impolist_random.iloc[:, 1].tolist()]  # impolist에서 2열 값 추출
-                    # print(impolist_values)
-
-            else:
-                print(f"'{class_base}'가 secondary_column에서도 찾을 수 없습니다.")
-
-            # 두 리스트를 합쳐서 최종 리스트 생성
-            final_list = authlist_values + impolist_values
-
-            if len(final_list) != (auth_matching_num + impo_matching_num):
-                print(f"Warning: final_list의 크기가 2가 아닙니다. 현재 크기: {len(final_list)}")
-                print(f"final_list 내용: {final_list}")
 
         # 각 경로에서 이미지를 그레이스케일로 로드
         img = Image.open(self.img_list1[index]).convert("RGB")  # GT
@@ -230,7 +138,7 @@ class dataset_norm(Dataset):
         # file_path = os.path.join(save_dir, file_name)
         # save_image(mask_img_tensor, file_path)
 
-        return img, mask_img, final_list
+        return img, mask_img
 
     def __len__(self):
         return self.size

@@ -5,8 +5,8 @@ import numpy as np
 from torch.autograd import Variable
 import torch.nn.functional as F
 import torch.utils.checkpoint as checkpoint
-from timm.models.layers import DropPath, to_2tuple, trunc_normal_
-from models.selfattention1 import MultiHeadAttention
+from timm.layers import DropPath, to_2tuple, trunc_normal_
+from models.selfattention_student import MultiHeadSelfAttention
 
 
 class LayerNorm(nn.Module):
@@ -904,49 +904,65 @@ class Conv1D_With_1x1Conv(nn.Module):
         x = x.view(B, H, W, C)  # (B, H, W, C) - 원래 채널 수 유지
         return x
 
-class SimpleSelfAttention(nn.Module):
-    def __init__(self, in_channels):
-        super(SimpleSelfAttention, self).__init__()
+# class SimplifiedTSP(nn.Module):
+#     def __init__(self, pre_step, size=[768, 4, 4]):
+#         super(SimplifiedTSP, self).__init__()
 
-        self.query = nn.Linear(in_channels, in_channels)
-        self.key = nn.Linear(in_channels, in_channels)
-        self.value = nn.Linear(in_channels, in_channels)
-        self.softmax = nn.Softmax(dim=-1)
+#         self.channel, self.height, self.width = size[0], size[1] + int(2 * pre_step), int(size[2] + 2 * pre_step)
 
-    def forward(self, x):
-        B, H, W, C = x.size()
-        x = x.view(B, H * W, C)  # Flatten to sequence
-        q, k, v = self.query(x), self.key(x), self.value(x)
+#         self.conv1d_transform = Conv1D_With_1x1Conv(self.channel)
 
-        attention_weights = self.softmax(torch.bmm(q, k.transpose(1, 2)) / (C ** 0.5))
-        # out = torch.bmm(attention_weights, v).view(B, H, W, C)
-        out = torch.bmm(attention_weights, v)  # (B, H*W, C)
+#         # self.self_attention = SimpleSelfAttention(self.channel)
+#         self.self_attention = MultiHeadSelfAttention(self.channel)
 
-        return out
+#         self.norm_layer = nn.LayerNorm(self.channel)
 
+#     def forward(self, x):
+#         B = x.size(0)
+#         x = x.view(B, self.height, self.width, self.channel)  # (B, 36, 768) -> (B, 6, 6, 768)
+
+#         xout = self.conv1d_transform(x)  # (B, H, W, C)
+#         feature = self.self_attention(xout)  # (B, H*W, C), layer norm 거치고 나옴
+
+#         # feature = feature1.view(B, -1, self.channel)
+#         # x = self.norm_layer(feature)
+
+#         out_decode = feature.view(B, self.height, self.width, self.channel)  # (B, H, W, C)
+
+#         out_decode = out_decode[:, :, 1:5, :]
+
+#         return feature, out_decode  # (B, 6, 6, C) / (B, 6, 4, C)
+
+# 24.11.18 bottlenexk with conv2d and attention
 class SimplifiedTSP(nn.Module):
-    def __init__(self, pre_step, size=[768, 4, 4]):
+    def __init__(self, pre_step, size=[768, 4, 4], conv_kernel_size=3):
         super(SimplifiedTSP, self).__init__()
 
         self.channel, self.height, self.width = size[0], size[1] + int(2 * pre_step), int(size[2] + 2 * pre_step)
 
-        self.conv1d_transform = Conv1D_With_1x1Conv(self.channel)
-        self.self_attention = SimpleSelfAttention(self.channel)
+        # Conv Layer
+        self.conv = nn.Conv2d(self.channel, self.channel, kernel_size=conv_kernel_size, padding=conv_kernel_size // 2)
+        self.relu = nn.ReLU()
 
-        self.norm_layer = nn.LayerNorm(self.channel)
+        # Self-Attention Layer
+        self.self_attention = MultiHeadSelfAttention(self.channel)
+        self.norm = nn.LayerNorm(self.channel)
 
     def forward(self, x):
+        # Conv Module: Local Context 학습
         B = x.size(0)
-        x = x.view(B, self.height, self.width, self.channel)  # (B, 36, 768) -> (B, 6, 6, 768)
+        x = x.view(B, self.height, self.width, self.channel).permute(0, 3, 1, 2)  # (B, 36, 768) -> (B, 6, 6, 768) -> (B, C, H, W)
 
-        xout = self.conv1d_transform(x)  # (B, H, W, C)
+        xout = self.conv(x)  # (B, C, H, W)
+        xout = self.relu(xout)
+
+        # Self-Attention Module: Global Context 학습
+        B, C, H, W = xout.size()
+        xout = xout.permute(0, 2, 3, 1).view(B, H * W, C)  # (B, H*W, C)
         feature = self.self_attention(xout)  # (B, H*W, C)
+        feature = self.norm(feature)
+        feature = x.view(B, H, W, C)
 
-        # feature = feature1.view(B, -1, self.channel)
-        x = self.norm_layer(feature)
+        out_decode = feature[:, :, 1:5, :]
 
-        out_decode = feature.view(B, self.height, self.width, self.channel)  # (B, H, W, C)
-
-        out_decode = out_decode[:, :, 1:5, :]
-
-        return feature, out_decode  # (B, 6, 6, C) / (B, 6, 4, C)
+        return feature, out_decode
