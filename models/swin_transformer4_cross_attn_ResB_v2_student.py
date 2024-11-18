@@ -961,7 +961,7 @@ class SimplifiedTSP(nn.Module):
         xout = xout.permute(0, 2, 3, 1)  # (B, H, W, C)
         feature = self.self_attention(xout)  # (B, H*W, C)
         feature = self.norm(feature)
-        feature = x.view(B, H, W, C)
+        feature = feature.view(B, H, W, C)
 
         out_decode = feature[:, :, 1:5, :]
 
