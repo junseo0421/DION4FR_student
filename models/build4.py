@@ -1,6 +1,7 @@
 from .swin_transformer4 import SwinTransformer4
 from .swin_transformer4_cross_attn_ResB_v2 import SwinTransformer4 as swin_cross_attn_RESB_v2  ## Proposed
 from .swin_transformer4_cross_attn_ResB_v2_student import SwinTransformer4 as swin_cross_attn_RESB_v2_student  ## Proposed
+from .swin_transformer4_cross_attn_ResB_v2_student_1 import SwinTransformer4 as swin_cross_attn_RESB_v2_student_1  ## Proposed
 
 
 #from .trans_ablation import Ablation
@@ -62,7 +63,23 @@ def build_model(config):
                                 ape=False,
                                 patch_norm=config['SWIN.PATCH_NORM'],
                                 use_checkpoint=config['TRAIN.USE_CHECKPOINT'])
-
+        elif model_type == 'swin_cross_attn_ResB_v2_student_1':
+        model = swin_cross_attn_RESB_v2_student_1(pre_step=config['pre_step'],
+                                img_size=config['IMG_SIZE'],
+                                patch_size=config['SWIN.PATCH_SIZE'],
+                                in_chans=config['SWIN.IN_CHANS'],
+                                embed_dim=config['SWIN.EMBED_DIM'],
+                                depths=config['SWIN.DEPTHS'],
+                                num_heads=config['SWIN.NUM_HEADS'],
+                                window_size=config['SWIN.WINDOW_SIZE'],
+                                mlp_ratio=config['SWIN.MLP_RATIO'],
+                                qkv_bias=config['SWIN.QKV_BIAS'],
+                                qk_scale=config['SWIN.QK_SCALE'],
+                                drop_rate=config['DROP_RATE'],
+                                drop_path_rate=config['DROP_PATH_RATE'],
+                                ape=False,
+                                patch_norm=config['SWIN.PATCH_NORM'],
+                                use_checkpoint=config['TRAIN.USE_CHECKPOINT'])
     else:
         raise NotImplementedError(f"Unkown model: {model_type}")
 

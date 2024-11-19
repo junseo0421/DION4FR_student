@@ -312,7 +312,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
 
 if __name__ == '__main__':
     NAME_DATASET = 'HKdb-1'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/only_student/output'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/no_tsp/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'logs_all')
@@ -392,7 +392,7 @@ if __name__ == '__main__':
     # 24.10.14 student model
     config = {}
     config['pre_step'] = 1
-    config['TYPE'] = 'swin_cross_attn_ResB_v2_student'
+    config['TYPE'] = 'swin_cross_attn_ResB_v2_student_1'  # 24.11.19 no tsp module 수정
     config['IMG_SIZE'] = 224
     config['SWIN.PATCH_SIZE'] = 4
     config['SWIN.IN_CHANS'] = 3
@@ -517,7 +517,7 @@ if __name__ == '__main__':
 
     # Load pre-trained weight
     if args.load_pretrain:
-        start_epoch = 620
+        start_epoch = 370
         print(f'Loading model weight...at epoch {start_epoch}')
         gen.load_state_dict(torch.load(join(args.load_weight_dir, f'Gen_former_{start_epoch}.pt')))
         dis.load_state_dict(torch.load(join(args.load_weight_dir, f'Dis_former_{start_epoch}.pt')))
