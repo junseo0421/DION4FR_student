@@ -63,7 +63,7 @@ def build_model(config):
                                 ape=False,
                                 patch_norm=config['SWIN.PATCH_NORM'],
                                 use_checkpoint=config['TRAIN.USE_CHECKPOINT'])
-        elif model_type == 'swin_cross_attn_ResB_v2_student_1':
+    elif model_type == 'swin_cross_attn_ResB_v2_student_1':
         model = swin_cross_attn_RESB_v2_student_1(pre_step=config['pre_step'],
                                 img_size=config['IMG_SIZE'],
                                 patch_size=config['SWIN.PATCH_SIZE'],
