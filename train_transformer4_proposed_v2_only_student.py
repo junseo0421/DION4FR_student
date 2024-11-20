@@ -311,8 +311,8 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'HKdb-1'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/no_tsp/output'
+    NAME_DATASET = 'HKdb-2'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/only_student_2d/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'logs_all')
@@ -342,10 +342,10 @@ if __name__ == '__main__':
 
         parser.add_argument('--train_batch_size', type=int, help='batch size of training data', default=2)
         parser.add_argument('--test_batch_size', type=int, help='batch size of testing data', default=16)
-        parser.add_argument('--epochs', type=int, help='number of epoches', default=700)
+        parser.add_argument('--epochs', type=int, help='number of epoches', default=500)
         parser.add_argument('--lr', type=float, help='learning rate', default=0.0004)
         parser.add_argument('--alpha', type=float, help='learning rate decay for discriminator', default=0.1)
-        parser.add_argument('--load_pretrain', type=bool, help='load pretrain weight', default=True)  # pretrain !!
+        parser.add_argument('--load_pretrain', type=bool, help='load pretrain weight', default=False)  # pretrain !!
         parser.add_argument('--test_flag', type=bool, help='testing while training', default=False)
         parser.add_argument('--adjoint', type=bool, help='if use adjoint in odenet', default=True)
 
@@ -392,7 +392,7 @@ if __name__ == '__main__':
     # 24.10.14 student model
     config = {}
     config['pre_step'] = 1
-    config['TYPE'] = 'swin_cross_attn_ResB_v2_student_1'  # 24.11.19 no tsp module 수정
+    config['TYPE'] = 'swin_cross_attn_ResB_v2_student'  # 24.11.20 only_student_2d
     config['IMG_SIZE'] = 224
     config['SWIN.PATCH_SIZE'] = 4
     config['SWIN.IN_CHANS'] = 3
