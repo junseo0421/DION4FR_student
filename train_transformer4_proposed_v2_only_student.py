@@ -311,7 +311,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'HKdb-2'
+    NAME_DATASET = 'SDdb-2'
     SAVE_BASE_DIR = '/content/drive/MyDrive/only_student_2d/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'checkpoints')
@@ -421,10 +421,10 @@ if __name__ == '__main__':
     ## 2023 11 08 class-wise하게 8:2로 나눠줌
     base_dir = '/content'
 
-    if NAME_DATASET == 'HKdb-1' or 'HKdb-2':
+    if NAME_DATASET == 'HKdb-1' or NAME_DATASET == 'HKdb-2':
         modified_NAME_DATASET = NAME_DATASET.replace('-', '_')
         db_dir = join('HK-db', modified_NAME_DATASET)
-    elif NAME_DATASET == 'SDdb-1' or 'SDdb-2':
+    elif NAME_DATASET == 'SDdb-1' or NAME_DATASET == 'SDdb-2':
         modified_NAME_DATASET = NAME_DATASET.replace('-', '_')
         db_dir = join('SD-db', modified_NAME_DATASET)
     else:
