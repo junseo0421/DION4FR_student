@@ -86,7 +86,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
 
     total_gen_loss = 0
 
-    with tqdm(train_loader, desc=f"Epoch {epoch}") as pbar:
+    with tqdm(total=len(train_loader), desc=f"Training Epoch {epoch}") as pbar:
         for batch_idx, (gt, mask_img) in enumerate(train_loader):  # 24.09.20 수정
             batchSize = mask_img.shape[0]
             imgSize = mask_img.shape[2]
@@ -213,7 +213,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
 
     total_gen_loss = 0
 
-    with tqdm(valid_loader, desc=f"Validation Epoch {epoch}") as pbar:
+    with tqdm(total=len(valid_loader), desc=f"Validation Epoch {epoch}") as pbar:
         for batch_idx, (gt, mask_img) in enumerate(valid_loader):  # 24.09.19 labels 추가 / 관련 matching 수정 필요
             batchSize = mask_img.shape[0]
             imgSize = mask_img.shape[2]
