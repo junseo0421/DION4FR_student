@@ -427,10 +427,10 @@ if __name__ == '__main__':
     ## 2023 11 08 class-wise하게 8:2로 나눠줌
     base_dir = '/content'
 
-    if NAME_DATASET == 'HKdb-1' or 'HKdb-2':
+    if NAME_DATASET == 'HKdb-1' or NAME_DATASET == 'HKdb-2':
         modified_NAME_DATASET = NAME_DATASET.replace('-', '_')
         db_dir = join('HK-db', modified_NAME_DATASET)
-    elif NAME_DATASET == 'SDdb-1' or 'SDdb-2':
+    elif NAME_DATASET == 'SDdb-1' or NAME_DATASET == 'SDdb-2':
         modified_NAME_DATASET = NAME_DATASET.replace('-', '_')
         db_dir = join('SD-db', modified_NAME_DATASET)
     else:
