@@ -170,6 +170,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             total_gen_loss += gen_loss.data
 
             # tqdm의 상태 업데이트
+            pbar.update(1)
             pbar.set_postfix({'gen_loss': gen_loss.item(), 'dis_loss': dis_loss.item()})
 
     ## Tensor board
@@ -293,6 +294,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
             total_gen_loss += gen_loss.data
 
             # tqdm의 상태 업데이트
+            pbar.update(1)
             pbar.set_postfix({'gen_loss': gen_loss.item(), 'dis_loss': dis_adv_loss.item()})
 
 
