@@ -30,6 +30,7 @@ from models.unet.unet_model import *
 from models.unet.sep_unet_model import *
 
 from tqdm import tqdm
+import time
 
 # this version is with normlized input with mean and std, all layers are normalized,
 # change the order of the 'make_layer' with norm-activate-conv,and use the multi-scal D
@@ -101,6 +102,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             ## feature size 맞춰주기 f_de 와 f_en
             ## Generate Image
             # I_pred, f_de = gen(mask_img)  # 생성된 image(2, 3, 192, 192), 중간 feature map
+            gen_step_start_time = time.time()
             I_pred = gen(mask_img)
             # f_en = gen(iner_img, only_encode=True)  #iner_img(GT)를 encoding하여 feature map을 얻음
 
@@ -111,11 +113,13 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
 
             ## Compute losses
             ## Update Discriminator
+            dis_step_start_time = time.time()
             opt_dis.zero_grad()
             dis_adv_loss = dis.calc_dis_loss(I_pred.detach(), gt)  # 생성된 image와 gt와의 구별 능력 학습
             dis_loss = dis_adv_loss
             dis_loss.backward()
             opt_dis.step()  # 가중치 update
+            dis_step_time = time.time() - dis_step_start_time
 
             # Pixel Reconstruction Loss
             # pixel_rec_loss = mse(I_pred, gt) * 10
@@ -157,6 +161,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             opt_gen.zero_grad()
             gen_loss.backward()
             opt_gen.step()
+            gen_step_time = time.time() - gen_step_start_time
 
             acc_pixel_rec_loss += pixel_rec_loss.data
             acc_gen_adv_loss += gen_adv_loss.data
@@ -171,7 +176,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
 
             # tqdm의 상태 업데이트
             pbar.update(1)
-            pbar.set_postfix({'gen_loss': gen_loss.item(), 'dis_loss': dis_loss.item()})
+            pbar.set_postfix({'gen_loss': gen_loss.item(), 'dis_loss': dis_loss.item(), 'dis_time': f"{dis_step_time:.2f}s", 'gen_time': f"{gen_step_time:.2f}s",})
 
     ## Tensor board
     writer.add_scalars('train/generator_loss',
