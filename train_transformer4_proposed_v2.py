@@ -62,7 +62,7 @@ def print_model_parameters(gen):
     print(f"Total parameters in the Student model: {total_params}")
 
 # Training
-def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, recognizer, teacher_gen):  #24.09.19 recognizer
+def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):  #24.09.19 recognizer
     gen.train()
     dis.train()
 
