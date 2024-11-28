@@ -264,7 +264,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'HKdb-1'
+    NAME_DATASET = 'HKdb-2'
     SAVE_BASE_DIR = '/content/drive/MyDrive/original_kd/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')  # 24.09.25 HKdb-2
