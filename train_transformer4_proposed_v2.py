@@ -197,9 +197,6 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             with torch.no_grad():
                 I_pred = gen(mask_img)  # U-Net
 
-            # i_mask = torch.ones_like(gt)
-            # i_mask[:, :, 32:32 + 128, 32:32 + 128] = 0
-            # mask_pred = I_pred * i_mask
             mask_pred = I_pred[:, :, :, 32:32 + 128]
 
             ## Compute losses
@@ -264,7 +261,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'HKdb-2'
+    NAME_DATASET = 'SDdb-2'
     SAVE_BASE_DIR = '/content/drive/MyDrive/original_kd/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')  # 24.09.25 HKdb-2
