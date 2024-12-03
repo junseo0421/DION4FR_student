@@ -141,7 +141,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
     writer.add_scalars('train/generator_loss', {'Texture Consistency Loss': acc_mrf_loss / len(train_loader.dataset)},
                        epoch)
     writer.add_scalars('train/generator_loss', {'Adversarial Loss': acc_gen_adv_loss / len(train_loader.dataset)},
-                       epoch)s
+                       epoch)
     writer.add_scalars('train/SSIM_loss', {'total gen Loss': acc_ssim_loss / len(train_loader.dataset)},
                        epoch)
     writer.add_scalars('train/total_gen_loss', {'total gen Loss': total_gen_loss / len(train_loader.dataset)},
@@ -204,7 +204,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
 
             
             gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss
-            
+
             opt_gen.zero_grad()
 
             acc_pixel_rec_loss += pixel_rec_loss.data
