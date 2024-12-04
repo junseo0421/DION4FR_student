@@ -120,7 +120,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
 
             ### original KD loss
             with torch.no_grad():
-                teacher_pred, _ = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
+                teacher_pred = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
 
             original_kd_loss = mae(teacher_pred, I_pred) * 20  # 가중치는 pxiel_rec_loss와 똑같이 설정. 나중에 조절 필요할 수도
 
@@ -220,7 +220,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
             ### original KD loss
             with torch.no_grad():
-                teacher_pred, _ = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
+                teacher_pred = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
 
             original_kd_loss = mae(teacher_pred, I_pred) * 20
 
@@ -261,25 +261,25 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'SDdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/original_kd/output'
+    NAME_DATASET = 'SDdb-1'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/original_kd_unet/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')  # 24.09.25 HKdb-2
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'logs_all')  # 24.09.25 HKdb-2
     LOAD_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')  # 24.09.25 HKdb-2
 
     if NAME_DATASET == 'HKdb-1':
-        best_epoch = 350
-    elif NAME_DATASET == 'HKdb-2':
-        best_epoch = 378
-    elif NAME_DATASET == 'SDdb-1':
-        best_epoch = 340
-    elif NAME_DATASET == 'SDdb-2':
         best_epoch = 500
+    elif NAME_DATASET == 'HKdb-2':
+        best_epoch = 350
+    elif NAME_DATASET == 'SDdb-1':
+        best_epoch = 350
+    elif NAME_DATASET == 'SDdb-2':
+        best_epoch = 400
     else:
         raise Exception("에러 메시지 : 잘못된 NAME_DATASET이 입력되었습니다.")
 
-    LOAD_TEACHER_WEIGHT_DIR = join('/content/mask_change_best_epoch', NAME_DATASET, f'Gen_former_{best_epoch}.pt')
+    LOAD_TEACHER_WEIGHT_DIR = join('/content/u_net_sep4_best_epoch', NAME_DATASET, f'Gen_former_{best_epoch}.pt')
     TRAIN_DATA_DIR = ''
 
     seed_everything(2024)  # Seed 고정
@@ -294,7 +294,7 @@ if __name__ == '__main__':
         parser.add_argument('--epochs', type=int, help='number of epoches', default=500)
         parser.add_argument('--lr', type=float, help='learning rate', default=0.0004)
         parser.add_argument('--alpha', type=float, help='learning rate decay for discriminator', default=0.1)
-        parser.add_argument('--load_pretrain', type=bool, help='load pretrain weight', default=True)  # pretrain !!
+        parser.add_argument('--load_pretrain', type=bool, help='load pretrain weight', default=False)  # pretrain !!
         parser.add_argument('--test_flag', type=bool, help='testing while training', default=False)
         parser.add_argument('--adjoint', type=bool, help='if use adjoint in odenet', default=True)
 
@@ -317,27 +317,8 @@ if __name__ == '__main__':
 
     args = get_args()
 
-    # 24.10.14 teacher model
-    config_t = {}
-    config_t['pre_step'] = 1
-    config_t['TYPE'] = 'swin_cross_attn_ResB_v2'
-    config_t['IMG_SIZE'] = 224
-    config_t['SWIN.PATCH_SIZE'] = 4
-    config_t['SWIN.IN_CHANS'] = 3
-    config_t['SWIN.EMBED_DIM'] = 96
-    config_t['SWIN.DEPTHS'] = [2, 2, 6, 2]
-    config_t['SWIN.NUM_HEADS'] = [3, 6, 12, 24]
-    config_t['SWIN.WINDOW_SIZE'] = 7
-    config_t['SWIN.MLP_RATIO'] = 4.
-    config_t['SWIN.QKV_BIAS'] = True
-    config_t['SWIN.QK_SCALE'] = None
-    config_t['DROP_RATE'] = 0.0
-    config_t['DROP_PATH_RATE'] = 0.2
-    config_t['SWIN.PATCH_NORM'] = True
-    config_t['TRAIN.USE_CHECKPOINT'] = False
-
     # 24.10.14 Teacher 모델 로드
-    teacher_gen = build_model(config_t).cuda()
+    teacher_gen = Sep_UNet_4(n_channels=3, n_classes=3).cuda()
     teacher_gen.load_state_dict(torch.load(args.load_teacher_weight_dir))
 
     # Freeze: 가중치 업데이트를 막음
@@ -361,7 +342,7 @@ if __name__ == '__main__':
     # 각 서브 폴더의 경로를 설정
     original_dir = join(base_dir, 'original_images_split', db_dir)  
     mask_dir = join(base_dir, 'mask_images_split_con', db_dir)  
-    clahe_dir = join(base_dir, 'clahe_images_split', db_dir)  # 24.11.04 HKDB-2
+    clahe_dir = join(base_dir, 'clahe_images_split', db_dir)  
 
     # 각 디렉토리가 존재하는지 확인
     assert os.path.isdir(original_dir), f"Original directory does not exist: {original_dir}"
@@ -431,7 +412,7 @@ if __name__ == '__main__':
     # Initialize the model
     print('Initializing model...')
     # gen = build_model(config).cuda()  
-    gen = Sep_UNet_4(n_channels=3, n_classes=3).cuda()  # U-Net student model
+    gen = DQ_Thin_Sep_UNet_4(n_channels=3, n_classes=3).cuda()  # U-Net student model
 
     # 24.10.11 모델 파라미터 수 출력
     print_model_parameters(gen)
