@@ -93,7 +93,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
             total_step_start_time = time.time()
 
             I_pred, features_s = gen(mask_img)
-            f2_s, f3_s, f4_s, f5_s = features_s["x2"], features_s["x3"], features_s["x4"], features_s["x5"]
+            f1_s, f2_s, f3_s, f4_s, f5_s = features_s["x1"], features_s["x2"], features_s["x3"], features_s["x4"], features_s["x5"]
             # f4_s, f5_s = features_s["x4"], features_s["x5"]
 
             mask_pred = I_pred[:, :, :, 32:32 + 128]  # 생성된 image의 일부분 선택
@@ -122,14 +122,14 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
             ### original KD loss
             with torch.no_grad():
                 teacher_pred, features_t = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
-                f2_t, f3_t, f4_t, f5_t = features_t["x2"], features_t["x3"], features_t["x4"], features_t["x5"]
+                f1_t, f2_t, f3_t, f4_t, f5_t = features_t["x1"], features_t["x2"], features_t["x3"], features_t["x4"], features_t["x5"]
                 # f4_t, f5_t = features_t["x4"], features_t["x5"]
 
             original_kd_loss = mae(teacher_pred, I_pred) * 20  # 가중치는 pxiel_rec_loss와 똑같이 설정. 나중에 조절 필요할 수도
 
             ### feature kd loss
             # afa_loss_warmup_rate = min(epoch / 20, 1.0)
-            afa_loss = mse(fam2(f2_s), f2_t) + mse(fam3(f3_s), f3_t) + mse(fam4(f4_s),f4_t) + mse(fam5(f5_s), f5_t)
+            afa_loss = mse(fam1(f1_s), f1_t) + mse(fam2(f2_s), f2_t) + mse(fam3(f3_s), f3_t) + mse(fam4(f4_s),f4_t) + mse(fam5(f5_s), f5_t)
             # afa_loss = mse(fam4(f4_s),f4_t) + mse(fam5(f5_s), f5_t)
             # afa_loss = afa_losses * afa_loss_warmup_rate
 
@@ -214,7 +214,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             ## Generate Image
             with torch.no_grad():
                 I_pred, features_s = gen(mask_img)
-                f2_s, f3_s, f4_s, f5_s = features_s["x2"], features_s["x3"], features_s["x4"], features_s["x5"]
+                f1_s, f2_s, f3_s, f4_s, f5_s = features_s["x1"], features_s["x2"], features_s["x3"], features_s["x4"], features_s["x5"]
                 # f4_s, f5_s = features_s["x4"], features_s["x5"]
 
             mask_pred = I_pred[:, :, :, 32:32 + 128]
@@ -241,7 +241,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             ### original KD loss
             with torch.no_grad():
                 teacher_pred, features_t = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
-                f2_t, f3_t, f4_t, f5_t = features_t["x2"], features_t["x3"], features_t["x4"], features_t["x5"]
+                f1_t, f2_t, f3_t, f4_t, f5_t = features_t["x1"], features_t["x2"], features_t["x3"], features_t["x4"], features_t["x5"]
                 # f4_t, f5_t = features_t["x4"], features_t["x5"]
 
             original_kd_loss = mae(teacher_pred, I_pred) * 20
@@ -249,7 +249,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             ### feature KD loss
             ### feature kd loss
             # fam_loss_warmup_rate = min(epoch / 20, 1.0)
-            afa_loss = mse(fam2(f2_s), f2_t) + mse(fam3(f3_s), f3_t) + mse(fam4(f4_s),f4_t) + mse(fam5(f5_s), f5_t)
+            afa_loss = mse(fam1(f1_s), f1_t) + mse(fam2(f2_s), f2_t) + mse(fam3(f3_s), f3_t) + mse(fam4(f4_s),f4_t) + mse(fam5(f5_s), f5_t)
             # afa_loss = mse(fam4(f4_s), f4_t) + mse(fam4(f5_s), f5_t)
             # fam_loss = fam_loss * fam_loss_warmup_rate
 
@@ -294,7 +294,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
 if __name__ == '__main__':
     NAME_DATASET = 'HKdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/afa_kd_x2345/output'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/afa_kd_5_complex/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')  # 24.09.25 HKdb-2
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'logs_all')  # 24.09.25 HKdb-2
@@ -446,7 +446,7 @@ if __name__ == '__main__':
     # gen = build_model(config).cuda()  
     gen = DQ_Thin_Sep_UNet_4(n_channels=3, n_classes=3).cuda()  # U-Net student model
 
-    # fam1 = AFA_Module(in_channels=4, out_channels=32, shapes=192).cuda()
+    fam1 = AFA_Module(in_channels=4, out_channels=32, shapes=192).cuda()
     fam2 = AFA_Module(in_channels=8, out_channels=64, shapes=96).cuda()
     fam3 = AFA_Module(in_channels=16, out_channels=128, shapes=48).cuda()
     fam4 = AFA_Module(in_channels=32, out_channels=256, shapes=24).cuda()
@@ -461,6 +461,7 @@ if __name__ == '__main__':
 
     opt_gen = optim.Adam(
         list(gen.parameters()) +
+        list(fam1.parameters()) +
         list(fam2.parameters()) +
         list(fam3.parameters()) +
         list(fam4.parameters()) +

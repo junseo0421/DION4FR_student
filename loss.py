@@ -122,32 +122,33 @@ class AFA_Module(nn.Module):
         batch_fftshift = torch.fft.fftshift(out_ft)  # B, C, H, W
 
         # Magnitude와 Phase 분리
-        magnitude = torch.abs(batch_fftshift)  # B, C, H, W
+        # magnitude = torch.abs(batch_fftshift)  # B, C, H, W
+        mag_out = torch.abs(batch_fftshift)  # B, C, H, W
         phase = torch.angle(batch_fftshift)  # B, C, H, W
 
-        # do the filter in here
-        h, w = batch_fftshift.shape[2:4]  # height and width
-        cy, cx = int(h / 2), int(w / 2)  # centerness
-        rh, rw = int(cuton * cy), int(cuton * cx)  # filter_size
-        # the value of center pixel is zero.
+        # # do the filter in here
+        # h, w = batch_fftshift.shape[2:4]  # height and width
+        # cy, cx = int(h / 2), int(w / 2)  # centerness
+        # rh, rw = int(cuton * cy), int(cuton * cx)  # filter_size
+        # # the value of center pixel is zero.
 
-        # 전체를 먼저 0으로 초기화
-        low_pass = torch.zeros_like(magnitude)  # B, C, H, W
+        # # 전체를 먼저 0으로 초기화
+        # low_pass = torch.zeros_like(magnitude)  # B, C, H, W
 
-        # 저주파수 영역만 복사
-        low_pass[:, :, cy - rh:cy + rh, cx - rw:cx + rw] = magnitude[:, :, cy - rh:cy + rh, cx - rw:cx + rw]
+        # # 저주파수 영역만 복사
+        # low_pass[:, :, cy - rh:cy + rh, cx - rw:cx + rw] = magnitude[:, :, cy - rh:cy + rh, cx - rw:cx + rw]
 
-        # 고주파수 영역만 복사
-        high_pass = magnitude - low_pass
+        # # 고주파수 영역만 복사
+        # high_pass = magnitude - low_pass
 
-        # 가중치를 제한하고 정규화된 가중합 적용
-        low_pass_weight = torch.sigmoid(self.low_param)  # 0 ~ 1 사이의 값
-        high_pass_weight = 1.0 - low_pass_weight  # Complementary weight
+        # # 가중치를 제한하고 정규화된 가중합 적용
+        # low_pass_weight = torch.sigmoid(self.low_param)  # 0 ~ 1 사이의 값
+        # high_pass_weight = 1.0 - low_pass_weight  # Complementary weight
 
-        low_pass = low_pass * low_pass_weight
-        high_pass = high_pass * high_pass_weight
+        # low_pass = low_pass * low_pass_weight
+        # high_pass = high_pass * high_pass_weight
 
-        mag_out = low_pass + high_pass  # B, C, H, W
+        # mag_out = low_pass + high_pass  # B, C, H, W
 
         spatial_attention_map = self.spatial_attention(phase)
         phase_out = phase * spatial_attention_map  # B, C, H, W
