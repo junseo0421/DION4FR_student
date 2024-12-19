@@ -321,7 +321,7 @@ if __name__ == '__main__':
 
         parser = argparse.ArgumentParser()
 
-        parser.add_argument('--train_batch_size', type=int, help='batch size of training data', default=2)
+        parser.add_argument('--train_batch_size', type=int, help='batch size of training data', default=4)
         parser.add_argument('--test_batch_size', type=int, help='batch size of testing data', default=16)
         parser.add_argument('--epochs', type=int, help='number of epoches', default=500)
         parser.add_argument('--lr', type=float, help='learning rate', default=0.0004)
