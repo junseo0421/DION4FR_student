@@ -171,7 +171,15 @@ class AFA_Module(nn.Module):
         out2 = self.w0(x)
 
         # 최종 출력 계산 후 BatchNorm과 ReLU 적용
-        output = self.rate1 * out + self.rate2 * out2
+        # output = self.rate1 * out + self.rate2 * out2
+
+        weight_sum = torch.sigmoid(self.rate1) + torch.sigmoid(self.rate2)
+
+        normalized_rate1 = torch.sigmoid(self.rate1) / weight_sum
+        normalized_rate2 = torch.sigmoid(self.rate2) / weight_sum
+
+        output = normalized_rate1 * out + normalized_rate2 * out2
+
         output = self.bn(output)
         output = self.relu(output)
 
