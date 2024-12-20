@@ -285,13 +285,14 @@ class AFA_Module(nn.Module):
         self.rate1.data.clamp_(min=0.1, max=2.0)  # 최소 0.1, 최대 2.0으로 제한
 
         # epsilon = 1e-5
-        out = torch.sigmoid(out) * self.rate1
+        # out = torch.sigmoid(out) * self.rate1  # rate1이 0.1로 수렴
+        out = torch.sigmoid(out) * x  
 
         # out2 = self.w0(x)
         # out2 = self.rate2 * out2
 
         # 최종 출력 계산 후 BatchNorm과 ReLU 적용
-        output = x + out * x
+        output = x + out * self.rate1
         # output = torch.cat([out, out2], dim=1)
         # output = self.bn(output)
         # output = self.relu(output)
