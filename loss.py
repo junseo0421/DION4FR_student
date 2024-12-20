@@ -77,15 +77,11 @@ class AFA_Module(nn.Module):
         # self.out_channels = feat_t_shape[1]
         self.scale = (1 / (self.in_channels * self.out_channels))
         self.weights1 = nn.Parameter(
-            self.scale * torch.rand(self.in_channels, self.out_channels, self.shapes, self.shapes, dtype=torch.cfloat))
-        self.weights2 = nn.Parameter(
-            self.scale * torch.rand(self.in_channels, self.out_channels, self.shapes, self.shapes, dtype=torch.cfloat))
-        # self.low_param = None
-        # self.high_param = None
+            self.scale * torch.rand(self.in_channels, self.out_channels // 2, self.shapes, self.shapes, dtype=torch.cfloat))
 
         self.low_param = torch.nn.Parameter(torch.Tensor(1))
 
-        self.w0 = nn.Conv2d(self.in_channels, self.out_channels, 1)
+        self.w0 = nn.Conv2d(self.in_channels, self.out_channels // 2, 1)
 
         self.spatial_conv = nn.Conv2d(2, 1, kernel_size=5, stride=1, padding=2, bias=False)
         self.spatial_sigmoid = nn.Sigmoid()
@@ -117,45 +113,46 @@ class AFA_Module(nn.Module):
 
         batchsize = x.shape[0]
         x_ft = torch.fft.fft2(x, norm="ortho")  # B, C, H, W
+
         #  print(x_ft.shape)
         out_ft = self.compl_mul2d(x_ft, self.weights1)  # 복소수의 곱, channel 수 변환
         batch_fftshift = torch.fft.fftshift(out_ft)  # B, C, H, W
 
         # Magnitude와 Phase 분리
-        # magnitude = torch.abs(batch_fftshift)  # B, C, H, W
-        mag_out = torch.abs(batch_fftshift)  # B, C, H, W
-        phase = torch.angle(batch_fftshift)  # B, C, H, W
+        # mag_out = torch.abs(batch_fftshift)  # 크기 값 계산
+        magnitude = torch.abs(batch_fftshift)  # 크기 값 계산
+        phase = torch.angle(batch_fftshift)  # 위상 값 계산
 
-        # # do the filter in here
-        # h, w = batch_fftshift.shape[2:4]  # height and width
-        # cy, cx = int(h / 2), int(w / 2)  # centerness
-        # rh, rw = int(cuton * cy), int(cuton * cx)  # filter_size
-        # # the value of center pixel is zero.
+        # do the filter in here
+        h, w = batch_fftshift.shape[2:4]  # height and width
+        cy, cx = int(h / 2), int(w / 2)  # centerness
+        rh, rw = int(cuton * cy), int(cuton * cx)  # filter_size
+        # the value of center pixel is zero.
 
-        # # 전체를 먼저 0으로 초기화
-        # low_pass = torch.zeros_like(magnitude)  # B, C, H, W
+        # 전체를 먼저 0으로 초기화
+        low_pass = torch.zeros_like(magnitude)  # B, C, H, W
 
-        # # 저주파수 영역만 복사
-        # low_pass[:, :, cy - rh:cy + rh, cx - rw:cx + rw] = magnitude[:, :, cy - rh:cy + rh, cx - rw:cx + rw]
+        # 저주파수 영역만 복사
+        low_pass[:, :, cy - rh:cy + rh, cx - rw:cx + rw] = magnitude[:, :, cy - rh:cy + rh, cx - rw:cx + rw]
 
-        # # 고주파수 영역만 복사
-        # high_pass = magnitude - low_pass
+        # 고주파수 영역만 복사
+        high_pass = magnitude - low_pass
 
-        # # 가중치를 제한하고 정규화된 가중합 적용
-        # low_pass_weight = torch.sigmoid(self.low_param)  # 0 ~ 1 사이의 값
-        # high_pass_weight = 1.0 - low_pass_weight  # Complementary weight
+        # 가중치를 제한하고 정규화된 가중합 적용
+        low_pass_weight = 0.5 + torch.sigmoid(self.low_param)
+        high_pass_weight = 2.0 - low_pass_weight  # 0.5 ~ 1.5 사이의 값
 
-        # low_pass = low_pass * low_pass_weight
-        # high_pass = high_pass * high_pass_weight
+        low_pass = low_pass * low_pass_weight
+        high_pass = high_pass * high_pass_weight
 
-        # mag_out = low_pass + high_pass  # B, C, H, W
+        mag_out = low_pass + high_pass  # B, C, H, W
 
         spatial_attention_map = self.spatial_attention(phase)
-        phase_out = phase * spatial_attention_map  # B, C, H, W
+        phase_out = phase * spatial_attention_map
 
         # Magnitude와 Phase 결합 (복소수 생성)
-        real = mag_out * torch.cos(phase_out)  # 실수부, (B, C, H, W)
-        imag = mag_out * torch.sin(phase_out)  # 허수부, (B, C, H, W)
+        real = mag_out * torch.cos(phase_out)  # 실수부
+        imag = mag_out * torch.sin(phase_out)  # 허수부
 
         # 복소수 형태로 결합
         fre_out = torch.complex(real, imag)
@@ -172,18 +169,12 @@ class AFA_Module(nn.Module):
 
         # 최종 출력 계산 후 BatchNorm과 ReLU 적용
         # output = self.rate1 * out + self.rate2 * out2
-
-        weight_sum = torch.sigmoid(self.rate1) + torch.sigmoid(self.rate2)
-
-        normalized_rate1 = torch.sigmoid(self.rate1) / weight_sum
-        normalized_rate2 = torch.sigmoid(self.rate2) / weight_sum
-
-        output = normalized_rate1 * out + normalized_rate2 * out2
-
+        output = torch.cat([out, out2], dim=1)
         output = self.bn(output)
         output = self.relu(output)
 
         return output
+
 
 def init_rate_half(tensor):
     if tensor is not None:

@@ -294,7 +294,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
 if __name__ == '__main__':
     NAME_DATASET = 'HKdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/afa_kd_5_complex/output'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/afa_kd_5_cat/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')  # 24.09.25 HKdb-2
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'logs_all')  # 24.09.25 HKdb-2
@@ -321,7 +321,7 @@ if __name__ == '__main__':
 
         parser = argparse.ArgumentParser()
 
-        parser.add_argument('--train_batch_size', type=int, help='batch size of training data', default=4)
+        parser.add_argument('--train_batch_size', type=int, help='batch size of training data', default=8)
         parser.add_argument('--test_batch_size', type=int, help='batch size of testing data', default=16)
         parser.add_argument('--epochs', type=int, help='number of epoches', default=500)
         parser.add_argument('--lr', type=float, help='learning rate', default=0.0004)
