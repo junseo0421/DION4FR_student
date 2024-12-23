@@ -151,7 +151,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             pbar.update(1)
             pbar.set_postfix({'gen_loss': gen_loss.item(),
                               'dis_loss': dis_loss.item(),
-                              'sobel_loss': total_sobel_loss
+                              'sobel_loss': total_sobel_loss.item()
                               })
 
     ## Tensor board
