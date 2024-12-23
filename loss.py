@@ -2,6 +2,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.transforms.functional as TF
+
 
 class SSIM_loss(nn.Module):
     """Layer to compute the SSIM loss between a pair of images
@@ -39,26 +41,26 @@ class SSIM_loss(nn.Module):
         # SSIM score
         return torch.mean(1-torch.clamp((SSIM_n / SSIM_d) / 2, 0, 1))
 
-# 24.10.15 FSP Loss
-class FSP(nn.Module):
-    def __init__(self):
-        super(FSP, self).__init__()
+# # 24.10.15 FSP Loss
+# class FSP(nn.Module):
+#     def __init__(self):
+#         super(FSP, self).__init__()
 
-    def forward(self, fm_s1, fm_s2, fm_t1, fm_t2):
-        loss = F.mse_loss(self.fsp_matrix(fm_s1, fm_s2), self.fsp_matrix(fm_t1, fm_t2))
+#     def forward(self, fm_s1, fm_s2, fm_t1, fm_t2):
+#         loss = F.mse_loss(self.fsp_matrix(fm_s1, fm_s2), self.fsp_matrix(fm_t1, fm_t2))
 
-        return loss
+#         return loss
 
-    def fsp_matrix(self, fm1, fm2):
-        if fm1.size(2) > fm2.size(2):
-            fm1 = F.adaptive_avg_pool2d(fm1, (fm2.size(2), fm2.size(3)))
+#     def fsp_matrix(self, fm1, fm2):
+#         if fm1.size(2) > fm2.size(2):
+#             fm1 = F.adaptive_avg_pool2d(fm1, (fm2.size(2), fm2.size(3)))
 
-        fm1 = fm1.view(fm1.size(0), fm1.size(1), -1)  # B, C, H, W
-        fm2 = fm2.view(fm2.size(0), fm2.size(1), -1).transpose(1,2)
+#         fm1 = fm1.view(fm1.size(0), fm1.size(1), -1)  # B, C, H, W
+#         fm2 = fm2.view(fm2.size(0), fm2.size(1), -1).transpose(1,2)
 
-        fsp = torch.bmm(fm1, fm2) / fm1.size(2)
+#         fsp = torch.bmm(fm1, fm2) / fm1.size(2)
 
-        return fsp
+#         return fsp
     
 # class AFA_Module_cat(nn.Module):
 #     def __init__(self, in_channels, out_channels, shapes):
@@ -174,6 +176,45 @@ class FSP(nn.Module):
 #         output = self.relu(output)
 
 #         return output
+
+class Sobel_loss(nn.Module):
+    def __init__(self):
+        super(Sobel_loss, self).__init__()
+        # Define Sobel kernels
+        self.sobel_x = nn.Parameter(torch.tensor([[-1, 0, 1],
+                                                  [-2, 0, 2],
+                                                  [-1, 0, 1]], dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+                                    requires_grad=False)  # (1, 1, 3, 3)
+        self.sobel_y = nn.Parameter(torch.tensor([[-1, -2, -1],
+                                                  [0, 0, 0],
+                                                  [1, 2, 1]], dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+                                    requires_grad=False)  # (1, 1, 3, 3)
+
+    def sobel_apply(self, x):
+        grad_x = F.conv2d(x, self.sobel_x, padding=1)
+        grad_y = F.conv2d(x, self.sobel_y, padding=1)
+        # Compute gradient magnitude
+
+        epsilon = 1e-8
+        grad_magnitude = torch.sqrt(grad_x ** 2 + grad_y ** 2 + epsilon)
+        return grad_magnitude
+
+    def forward(self, pred, gt):
+        if pred.shape[1] == 3:
+            pred_gray = TF.rgb_to_grayscale(pred, num_output_channels=1)  # (N, 1, H, W)
+        else:
+            pred_gray = pred
+
+        if gt.shape[1] == 3:
+            gt_gray = TF.rgb_to_grayscale(gt, num_output_channels=1)  # (N, 1, H, W)
+        else:
+            gt_gray = gt
+
+        sobel_pred = self.sobel_apply(pred_gray)
+        sobel_gt = self.sobel_apply(gt_gray)
+
+        return F.l1_loss(sobel_pred, sobel_gt)
+
 
 class AFA_Module(nn.Module):
     def __init__(self, in_channels, out_channels, shapes):
