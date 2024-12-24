@@ -12,10 +12,8 @@ from torchvision.transforms import ToTensor, Normalize, Resize, CenterCrop
 import os
 from os.path import join, basename, splitext
 from models.build4 import build_model, ImagePool
-# from models.Generator_former import Generator_former
 from utils.loss import *
 from models.Discriminator_ml import MsImageDis
-# from utils.utils import gaussian_weight
 from tensorboardX import SummaryWriter
 from dataset import dataset_norm
 import argparse
@@ -60,13 +58,6 @@ def print_model_parameters(gen):
     # 전체 모델 파라미터 수
     total_params = count_parameters(gen)
     print(f"Total parameters in the Student model: {total_params}")
-
-    # simple TSP module 파라미터 수
-    if hasattr(gen, 'simple_MRB'):
-        tsp_params = count_parameters(gen.simple_MRB)
-        print(f"simple TSP Module parameters: {tsp_params}")
-    else:
-        print("simple TSP Module not found in the model")
 
 # Training
 def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 recognizer
@@ -121,17 +112,14 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             right_loss = ssim_loss(I_pred[:, :, :, 160:192], I_pred[:, :, :, 128:160])
             total_ssim_loss = left_loss + right_loss
 
+            ### Sobel loss
             sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
             sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
             total_sobel_loss = sobel_left_loss + sobel_right_loss
 
-            # ### original KD loss
-
             # ## Update Generator
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
 
-            # 24.09.19 Recognition Loss, 24.10.14 original kd loss
-            # gen_loss = pixel_rec_loss + gen_adv_loss + feat_rec_loss + mrf_loss.cuda(0) + total_ssim_loss + original_kd_loss
             gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss
 
             opt_gen.zero_grad()
@@ -199,7 +187,6 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
 
             iner_img = gt[:, :, :, 32:32 + 128]
 
-            ## feature size match f_de and f_en
             ## Generate Image
             with torch.no_grad():
                 I_pred, _ = gen(mask_img)
@@ -218,21 +205,18 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
             # Texture Consistency Loss (IDMRF Loss)
             mrf_loss = mrf((mask_pred.cuda(0) + 1) / 2.0, (iner_img.cuda(0) + 1) / 2.0) * 0.5 / batchSize
 
-            # ## Update Generator
-
             ### SSIM loss
             left_loss = ssim_loss(I_pred[:, :, :, 0:32], I_pred[:, :, :, 32:64])
             right_loss = ssim_loss(I_pred[:, :, :, 160:192], I_pred[:, :, :, 128:160])
             total_ssim_loss = left_loss + right_loss
 
+            ### Sobel loss
             sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
             sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
             total_sobel_loss = sobel_left_loss + sobel_right_loss
 
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
 
-            # 24.09.19 Recognition Loss, 24.10.14 original kd loss
-            # gen_loss = pixel_rec_loss + gen_adv_loss + feat_rec_loss + mrf_loss.cuda(0) + total_ssim_loss + original_kd_loss
             gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss
             opt_gen.zero_grad()
 
@@ -423,7 +407,7 @@ if __name__ == '__main__':
 
     # Load data
     print('Loading data...')
-    # transformations = transforms.Compose([ToTensor(), Normalize(mean, std)])
+
     transformations = transforms.Compose(
         [torchvision.transforms.RandomResizedCrop((192, 192), scale=(0.8, 1.2), ratio=(0.75, 1.3333333333333333), ),
          CenterCrop(192), ToTensor(), Normalize(mean, std)])  # augmentation
@@ -446,10 +430,10 @@ if __name__ == '__main__':
     for epoch in range(start_epoch + 1, 1 + args.epochs):
         print("----Start training[%d / %d]----" % (epoch, args.epochs))
 
-        train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer)  # 24.09.25 teacher
+        train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer)  
 
         # Update the valid function to iterate over the tqdm-wrapped loader
-        valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer)  # 24.09.25 teacher
+        valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer)  
 
         # Save the model weight every 10 epochs
         if (epoch % 10) == 0:
