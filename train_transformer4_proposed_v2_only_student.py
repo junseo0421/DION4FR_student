@@ -117,7 +117,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
             total_sobel_loss = sobel_left_loss + sobel_right_loss
 
-            sobel_loss_weight = 100.0
+            sobel_loss_weight = 20.0
 
             total_sobel_loss = total_sobel_loss * sobel_loss_weight
 
@@ -219,7 +219,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
             sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
             total_sobel_loss = sobel_left_loss + sobel_right_loss
 
-            sobel_loss_weight = 100.0
+            sobel_loss_weight = 20.0
 
             total_sobel_loss = total_sobel_loss * sobel_loss_weight
 
@@ -263,7 +263,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
 
 if __name__ == '__main__':
     NAME_DATASET = 'HKdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_100/output'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_20/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'logs_all')
