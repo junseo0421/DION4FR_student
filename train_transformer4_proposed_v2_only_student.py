@@ -263,7 +263,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
 
 if __name__ == '__main__':
     NAME_DATASET = 'HKdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_100/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'logs_all')
