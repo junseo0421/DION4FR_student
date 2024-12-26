@@ -117,6 +117,10 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
             total_sobel_loss = sobel_left_loss + sobel_right_loss
 
+            sobel_loss_weight = 10.0
+
+            total_sobel_loss = total_sobel_loss * sobel_loss_weight
+
             # ## Update Generator
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
 
@@ -214,6 +218,10 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
             sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
             sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
             total_sobel_loss = sobel_left_loss + sobel_right_loss
+
+            sobel_loss_weight = 10.0
+
+            total_sobel_loss = total_sobel_loss * sobel_loss_weight
 
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
 
