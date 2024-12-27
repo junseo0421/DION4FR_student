@@ -69,16 +69,16 @@ def evaluate(gen, eval_loader, rand_pair, save_dir):
 if __name__ == '__main__':
 
     TEST_DATA_DIR = '/content/HKPU_A_CROP_W25P_V2' 
-    SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/HKdb-2/test_result' 
+    SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_20/output/HKdb-2/test_result' 
 
     # TEST_DATA_DIR = '/content/HKPU_B_CROP_W25P_V2' 
-    # SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/HKdb-1/test_result'  
+    # SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_20/output/HKdb-1/test_result'  
 
     # TEST_DATA_DIR = '/content/SDU_A_original_CROP_W25P_V2'  
-    # SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/SDdb-2/test_result' 
+    # SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_20/output/SDdb-2/test_result' 
 
     # TEST_DATA_DIR = '/content/SDU_B_original_CROP_W25P_V2' 
-    # SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/SDdb-1/test_result'  
+    # SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_20/output/SDdb-1/test_result'  
 
 
     def get_args():
@@ -118,7 +118,7 @@ if __name__ == '__main__':
 
     for epoch in epoch_list:
         # Construct weight path and save directory based on the epoch
-        load_weight_dir = f'/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/HKdb-2/checkpoints/Gen_former_{epoch}.pt'  # 24.10.10 HKdb-2 test에 맞춰 변경함
+        load_weight_dir = f'/content/drive/MyDrive/dq_unet_sep4_sobel_weight_20/output/HKdb-2/checkpoints/Gen_former_{epoch}.pt'  # 24.10.10 HKdb-2 test에 맞춰 변경함
         save_dir_epoch = join(SAVE_DIR, f'epoch_{epoch}')
 
         # Create save directory if not exists
