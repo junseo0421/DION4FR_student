@@ -68,16 +68,16 @@ def evaluate(gen, eval_loader, rand_pair, save_dir):
 
 if __name__ == '__main__':
 
-    TEST_DATA_DIR = '/content/datasets/HKPU_A_CROP_W25P_V2' 
+    TEST_DATA_DIR = '/content/HKPU_A_CROP_W25P_V2' 
     SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/HKdb-2/test_result' 
 
-    # TEST_DATA_DIR = '/content/datasets/HKPU_B_CROP_W25P_V2' 
+    # TEST_DATA_DIR = '/content/HKPU_B_CROP_W25P_V2' 
     # SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/HKdb-1/test_result'  
 
-    # TEST_DATA_DIR = '/content/datasets/SDU_A_original_CROP_W25P_V2'  
+    # TEST_DATA_DIR = '/content/SDU_A_original_CROP_W25P_V2'  
     # SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/SDdb-2/test_result' 
 
-    # TEST_DATA_DIR = '/content/datasets/SDU_B_original_CROP_W25P_V2' 
+    # TEST_DATA_DIR = '/content/SDU_B_original_CROP_W25P_V2' 
     # SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/SDdb-1/test_result'  
 
 
