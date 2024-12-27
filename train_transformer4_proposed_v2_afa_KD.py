@@ -59,6 +59,23 @@ def print_model_parameters(gen):
     total_params = count_parameters(gen)
     print(f"Total parameters in the Student model: {total_params}")
 
+def normalize_image(tensor, min_value=None, max_value=None):
+    """
+    텐서를 [0, 1] 범위로 정규화합니다.
+    Args:
+        tensor: 정규화할 텐서
+        min_value: 최소값 (None이면 텐서의 최소값 사용)
+        max_value: 최대값 (None이면 텐서의 최대값 사용)
+    Returns:
+        정규화된 텐서
+    """
+    if min_value is None:
+        min_value = tensor.min()
+    if max_value is None:
+        max_value = tensor.max()
+    normalized_tensor = (tensor - min_value) / (max_value - min_value + 1e-8)  # 1e-8은 안정성을 위해 추가
+    return normalized_tensor
+
 # Training
 def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):  #24.09.19 recognizer
     gen.train()
@@ -101,13 +118,11 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
 
             ## Compute losses
             ## Update Discriminator
-            dis_step_start_time = time.time()
             opt_dis.zero_grad()
             dis_adv_loss = dis.calc_dis_loss(I_pred.detach(), gt)  # 생성된 image와 gt와의 구별 능력 학습
             dis_loss = dis_adv_loss
             dis_loss.backward()
             opt_dis.step()  # 가중치 update
-            dis_step_time = time.time() - dis_step_start_time
 
             # Pixel Reconstruction Loss
             pixel_rec_loss = mae(I_pred, gt) * 20  # pixel 재구성 손실
@@ -123,6 +138,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
             ### original KD loss
             with torch.no_grad():
                 teacher_pred, _ = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
+                teacher_pred_freq = torch.fft.fft2(teacher_pred, norm="ortho")  # B, C, H, W / shift 하면 안 됨
                 # teacher_pred, features_t = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
                 # f1_t, f2_t, f3_t, f4_t, f5_t = features_t["x1"], features_t["x2"], features_t["x3"], features_t["x4"], features_t["x5"]
                 # f5_t = features_t["x5"]
@@ -130,10 +146,27 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
             # original_kd_loss = mae(teacher_pred, I_pred) * 20  # 가중치는 pxiel_rec_loss와 똑같이 설정. 나중에 조절 필요할 수도
 
             ### feature kd loss
-            # afa_loss_warmup_rate = min(epoch / 20, 1.0)
-            # afa_loss = mse(fam1(f1_s), f1_t) + mse(fam2(f2_s), f2_t) + mse(fam3(f3_s), f3_t) + mse(fam4(f4_s), f4_t) + mse(fam5(f5_s), f5_t)
-            afa_loss = mse(fam_out(I_pred), teacher_pred) * 10
-            # afa_loss = afa_losses * afa_loss_warmup_rate
+            I_pred_freq, I_pred_phase, I_pred_phase_out, I_pred_afa = fam_out(I_pred)
+            # afa_loss = mse(I_pred_afa, teacher_pred) * 10
+            afa_loss = mae(I_pred_freq, teacher_pred_freq) * 100
+
+            if batch_idx == 0 or batch_idx == 1 or batch_idx == 2:
+                # 이미지 정규화
+                grid_teacher_pred = normalize_image(teacher_pred[0].detach().cpu())  # [-3, 3] 등 다양한 범위를 [0, 1]로 변환
+                grid_I_pred = normalize_image(I_pred[0].detach().cpu())
+                grid_I_pred_afa = normalize_image(I_pred_afa[0].detach().cpu())
+
+                grid_I_pred_phase = normalize_image(I_pred_phase[0].detach().cpu())
+                grid_I_pred_phase_out = normalize_image(I_pred_phase_out[0].detach().cpu())
+
+                phase_concatenated_img = torch.cat([grid_I_pred_phase, grid_I_pred_phase_out], dim=2)
+                writer.add_image(f'train/batch_{batch_idx}_phase_concatenated_image(in / out)',
+                                 torchvision.utils.make_grid(phase_concatenated_img), epoch)
+
+                # 세로로 이어 붙인 이미지 생성
+                concatenated_image = torch.cat([grid_teacher_pred, grid_I_pred, grid_I_pred_afa], dim=2)  # 세로 방향으로 연결
+                writer.add_image(f'train/batch_{batch_idx}_concatenated_image',
+                                 torchvision.utils.make_grid(concatenated_image), epoch)
 
             # ## Update Generator
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
@@ -145,7 +178,6 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
             opt_gen.zero_grad()
             gen_loss.backward()
             opt_gen.step()
-            total_step_time = time.time() - total_step_start_time
 
             acc_pixel_rec_loss += pixel_rec_loss.data
             acc_gen_adv_loss += gen_adv_loss.data
@@ -159,7 +191,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
 
             # fam_out 파라미터 값 가져오기
             low_param_value = fam_out.low_param.item()
-            rate1_value = fam_out.rate1.item()
+            # rate1_value = fam_out.rate1.item()
 
             # tqdm의 상태 업데이트
             pbar.update(1)
@@ -167,9 +199,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
                               'dis_loss': dis_loss.item(),
                               'afa_loss': afa_loss.item(),
                               'low_param': f"{low_param_value:.4f}",  # low_param 값 표시
-                              'rate1': f"{rate1_value:.4f}",  # rate1 값 표시
-                              'dis_time': f"{dis_step_time:.2f}s",
-                              'total_time': f"{total_step_time:.2f}s"})
+                              })
 
     ## Tensor board
     writer.add_scalars('train/generator_loss',
@@ -251,6 +281,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             ### original KD loss
             with torch.no_grad():
                 teacher_pred, _ = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
+                teacher_pred_freq = torch.fft.fft2(teacher_pred, norm="ortho")  # B, C, H, W
                 # teacher_pred, features_t = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
                 # f1_t, f2_t, f3_t, f4_t, f5_t = features_t["x1"], features_t["x2"], features_t["x3"], features_t["x4"], features_t["x5"]
                 # f5_t = features_t["x5"]
@@ -259,10 +290,27 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
             ### feature KD loss
             ### feature kd loss
-            # fam_loss_warmup_rate = min(epoch / 20, 1.0)
-            # afa_loss = mse(fam1(f1_s), f1_t) + mse(fam2(f2_s), f2_t) + mse(fam3(f3_s), f3_t) + mse(fam4(f4_s),f4_t) + mse(fam5(f5_s), f5_t)
-            afa_loss = mse(fam_out(I_pred), teacher_pred) * 10
-            # fam_loss = fam_loss * fam_loss_warmup_rate
+            I_pred_freq, I_pred_phase, I_pred_phase_out, I_pred_afa = fam_out(I_pred)
+            # afa_loss = mse(I_pred_afa, teacher_pred) * 10
+            afa_loss = mae(I_pred_freq, teacher_pred_freq) * 100
+
+            if batch_idx == 0 or batch_idx == 1 or batch_idx == 2:
+                # 이미지 정규화
+                grid_teacher_pred = normalize_image(teacher_pred[0].detach().cpu())  # [-3, 3] 등 다양한 범위를 [0, 1]로 변환
+                grid_I_pred = normalize_image(I_pred[0].detach().cpu())
+                grid_I_pred_afa = normalize_image(I_pred_afa[0].detach().cpu())
+
+                grid_I_pred_phase = normalize_image(I_pred_phase[0].detach().cpu())
+                grid_I_pred_phase_out = normalize_image(I_pred_phase_out[0].detach().cpu())
+
+                phase_concatenated_img = torch.cat([grid_I_pred_phase, grid_I_pred_phase_out], dim=2)
+                writer.add_image(f'train/batch_{batch_idx}_phase_concatenated_image(in / out)',
+                                 torchvision.utils.make_grid(phase_concatenated_img), epoch)
+
+                # 세로로 이어 붙인 이미지 생성
+                concatenated_image = torch.cat([grid_teacher_pred, grid_I_pred, grid_I_pred_afa], dim=2)  # 세로 방향으로 연결
+                writer.add_image(f'train/batch_{batch_idx}_concatenated_image',
+                                 torchvision.utils.make_grid(concatenated_image), epoch)
 
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
 
@@ -305,8 +353,8 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'SDdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/afa_kd_out_only/output'
+    NAME_DATASET = 'HKdb-2'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/afa_kd_out_only_freq_map_kernel_3/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')  # 24.09.25 HKdb-2
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'logs_all')  # 24.09.25 HKdb-2
@@ -464,7 +512,8 @@ if __name__ == '__main__':
     # fam4 = AFA_Module(in_channels=32, out_channels=256, shapes=24).cuda()
     # fam5 = AFA_Module(in_channels=64, out_channels=512, shapes=12).cuda()
 
-    fam_out = AFA_Module(in_channels=3, out_channels=3, shapes=192).cuda()
+    # fam_out = AFA_Module(in_channels=3, out_channels=3, shapes=192).cuda()
+    fam_out = Sep_AFA_Module(in_channels=3, out_channels=3, shapes=192).cuda()
 
     # 24.10.11 모델 파라미터 수 출력
     print_model_parameters(gen)
