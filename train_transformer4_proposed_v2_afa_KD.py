@@ -146,7 +146,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
             # original_kd_loss = mae(teacher_pred, I_pred) * 20  # 가중치는 pxiel_rec_loss와 똑같이 설정. 나중에 조절 필요할 수도
 
             ### feature kd loss
-            I_pred_freq, I_pred_phase, I_pred_phase_out, I_pred_afa = fam_out(I_pred)
+            I_pred_freq, I_pred_mag, I_pred_mag_out, I_pred_afa = fam_out(I_pred)
             # afa_loss = mse(I_pred_afa, teacher_pred) * 10
             afa_loss = mae(I_pred_freq, teacher_pred_freq) * 100
 
@@ -156,12 +156,12 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
                 grid_I_pred = normalize_image(I_pred[0].detach().cpu())
                 grid_I_pred_afa = normalize_image(I_pred_afa[0].detach().cpu())
 
-                grid_I_pred_phase = normalize_image(I_pred_phase[0].detach().cpu())
-                grid_I_pred_phase_out = normalize_image(I_pred_phase_out[0].detach().cpu())
+                grid_I_pred_mag = normalize_image(I_pred_mag[0].detach().cpu())
+                grid_I_pred_mag_out = normalize_image(I_pred_mag_out[0].detach().cpu())
 
-                phase_concatenated_img = torch.cat([grid_I_pred_phase, grid_I_pred_phase_out], dim=2)
-                writer.add_image(f'train/batch_{batch_idx}_phase_concatenated_image(in / out)',
-                                 torchvision.utils.make_grid(phase_concatenated_img), epoch)
+                mag_concatenated_img = torch.cat([grid_I_pred_mag, grid_I_pred_mag_out], dim=2)
+                writer.add_image(f'train/batch_{batch_idx}_mag_concatenated_image(in / out)',
+                                 torchvision.utils.make_grid(mag_concatenated_img), epoch)
 
                 # 세로로 이어 붙인 이미지 생성
                 concatenated_image = torch.cat([grid_teacher_pred, grid_I_pred, grid_I_pred_afa], dim=2)  # 세로 방향으로 연결
@@ -191,6 +191,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
 
             # fam_out 파라미터 값 가져오기
             low_param_value = fam_out.low_param.item()
+            high_param_value = fam_out.high_param.item()
             # rate1_value = fam_out.rate1.item()
 
             # tqdm의 상태 업데이트
@@ -199,6 +200,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
                               'dis_loss': dis_loss.item(),
                               'afa_loss': afa_loss.item(),
                               'low_param': f"{low_param_value:.4f}",  # low_param 값 표시
+                              'high_param': f"{high_param_value:.4f}"
                               })
 
     ## Tensor board
@@ -290,7 +292,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
             ### feature KD loss
             ### feature kd loss
-            I_pred_freq, I_pred_phase, I_pred_phase_out, I_pred_afa = fam_out(I_pred)
+            I_pred_freq, I_pred_mag, I_pred_mag_out, I_pred_afa = fam_out(I_pred)
             # afa_loss = mse(I_pred_afa, teacher_pred) * 10
             afa_loss = mae(I_pred_freq, teacher_pred_freq) * 100
 
@@ -300,12 +302,12 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                 grid_I_pred = normalize_image(I_pred[0].detach().cpu())
                 grid_I_pred_afa = normalize_image(I_pred_afa[0].detach().cpu())
 
-                grid_I_pred_phase = normalize_image(I_pred_phase[0].detach().cpu())
-                grid_I_pred_phase_out = normalize_image(I_pred_phase_out[0].detach().cpu())
+                grid_I_pred_mag = normalize_image(I_pred_mag[0].detach().cpu())
+                grid_I_pred_mag_out = normalize_image(I_pred_mag_out[0].detach().cpu())
 
-                phase_concatenated_img = torch.cat([grid_I_pred_phase, grid_I_pred_phase_out], dim=2)
-                writer.add_image(f'valid/batch_{batch_idx}_phase_concatenated_image(in / out)',
-                                 torchvision.utils.make_grid(phase_concatenated_img), epoch)
+                mag_concatenated_img = torch.cat([grid_I_pred_mag, grid_I_pred_mag_out], dim=2)
+                writer.add_image(f'valid/batch_{batch_idx}_mag_concatenated_image(in / out)',
+                                 torchvision.utils.make_grid(mag_concatenated_img), epoch)
 
                 # 세로로 이어 붙인 이미지 생성
                 concatenated_image = torch.cat([grid_teacher_pred, grid_I_pred, grid_I_pred_afa], dim=2)  # 세로 방향으로 연결
@@ -354,7 +356,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
 if __name__ == '__main__':
     NAME_DATASET = 'HKdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/afa_kd_out_only_freq_map_kernel_3/output'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/afa_kd_out_only_between_freq_map_gf/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')  # 24.09.25 HKdb-2
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'logs_all')  # 24.09.25 HKdb-2

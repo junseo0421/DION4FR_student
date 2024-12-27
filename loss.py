@@ -224,12 +224,13 @@ class Sep_AFA_Module(nn.Module):
         self.weights1 = nn.Parameter(
             self.scale * torch.rand(self.in_channels, self.out_channels, self.shapes, self.shapes, dtype=torch.cfloat))
 
-        self.low_param = torch.nn.Parameter(torch.zeros(1))
+        self.low_param = torch.nn.Parameter(torch.ones(1))
+        self.high_param = torch.nn.Parameter(torch.ones(1))
 
         # self.w0 = nn.Conv2d(self.in_channels, self.out_channels, 1)
 
-        self.spatial_conv = nn.Conv2d(2, 1, kernel_size=3, stride=1, padding=1, bias=False)
-        self.spatial_sigmoid = nn.Sigmoid()
+        # self.spatial_conv = nn.Conv2d(2, 1, kernel_size=3, stride=1, padding=1, bias=False)
+        # self.spatial_sigmoid = nn.Sigmoid()
 
         # init_rate_half(self.rate1)
         # init_rate_half(self.rate2)
@@ -242,13 +243,13 @@ class Sep_AFA_Module(nn.Module):
     def compl_mul2d(self, input, weights):
         return torch.einsum("bixy,ioxy->boxy", input, weights)
 
-    def spatial_attention(self, x):
-        # Compute mean and max along the channel dimension
-        avg_out = torch.mean(x, dim=1, keepdim=True)
-        max_out, _ = torch.max(x, dim=1, keepdim=True)  # 반환 값 values, indices
-        attention = torch.cat([avg_out, max_out], dim=1)
-        attention = self.spatial_conv(attention)
-        return self.spatial_sigmoid(attention)
+    # def spatial_attention(self, x):
+    #     # Compute mean and max along the channel dimension
+    #     avg_out = torch.mean(x, dim=1, keepdim=True)
+    #     max_out, _ = torch.max(x, dim=1, keepdim=True)  # 반환 값 values, indices
+    #     attention = torch.cat([avg_out, max_out], dim=1)
+    #     attention = self.spatial_conv(attention)
+    #     return self.spatial_sigmoid(attention)
     
     def phase_vis(self, x):
         phase_img = torch.exp(1j * x)
@@ -257,6 +258,10 @@ class Sep_AFA_Module(nn.Module):
         
         return phase_img
 
+    def mag_vis(self, x):
+        magnitude = torch.log(1 + x)
+
+        return magnitude
 
     def forward(self, x):
         if isinstance(x, tuple):
@@ -293,26 +298,30 @@ class Sep_AFA_Module(nn.Module):
         high_pass = magnitude - low_pass
 
         # 가중치를 제한하고 정규화된 가중합 적용
-        self.low_param.data.clamp_(min=-2.0, max=2.0)  # Sigmoid에 적합한 입력 범위로 제한
+        # self.low_param.data.clamp_(min=-2.0, max=2.0)  # Sigmoid에 적합한 입력 범위로 제한
 
-        low_pass_weight = torch.sigmoid(self.low_param) + 0.5
-        high_pass_weight = 2.0 - low_pass_weight  # 0 ~ 1 사이의 값
+        # low_pass_weight = torch.sigmoid(self.low_param) + 0.5
+        # high_pass_weight = 2.0 - low_pass_weight  # 0 ~ 1 사이의 값
 
-        low_pass = low_pass * low_pass_weight
-        high_pass = high_pass * high_pass_weight
+        low_pass = low_pass * self.low_param
+        high_pass = high_pass * self.high_param
 
         mag_out = low_pass + high_pass  # B, C, H, W
 
-        spatial_attention_map = self.spatial_attention(phase)
-        phase_out = phase * spatial_attention_map
+        # spatial_attention_map = self.spatial_attention(phase)
+        # phase_out = phase * spatial_attention_map
 
-        # phase 시각화
-        phase_vis = self.phase_vis(phase)
-        phase_out_vis = self.phase_vis(phase_out)
+        # # phase 시각화
+        # phase_vis = self.phase_vis(phase)
+        # phase_out_vis = self.phase_vis(phase_out)
+
+        # magnitude 시각화
+        mag_vis = self.mag_vis(magnitude)
+        mag_out_vis = self.mag_vis(mag_out)
 
         # Magnitude와 Phase 결합 (복소수 생성)
-        real = mag_out * torch.cos(phase_out)  # 실수부
-        imag = mag_out * torch.sin(phase_out)  # 허수부
+        real = mag_out * torch.cos(phase)  # 실수부
+        imag = mag_out * torch.sin(phase)  # 허수부
 
         # 복소수 형태로 결합
         fre_out = torch.complex(real, imag)
@@ -324,7 +333,7 @@ class Sep_AFA_Module(nn.Module):
         out = torch.fft.ifft2(x_fft, s=(x.size(-2), x.size(-1)), norm="ortho").real
 
         # return output
-        return x_fft, phase_vis, phase_out_vis, out  # 다시 shift로 되돌린 complex, ifft 거친 feature map
+        return x_fft, mag_vis, mag_out_vis, out  # 다시 shift로 되돌린 complex, ifft 거친 feature map
 
 def init_rate_half(tensor):
     if tensor is not None:
