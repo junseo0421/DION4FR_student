@@ -19,6 +19,8 @@ from torchvision.utils import save_image
 
 from utils.utils import *
 
+from models.unet.sep_unet_model import *
+
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
@@ -66,11 +68,17 @@ def evaluate(gen, eval_loader, rand_pair, save_dir):
 
 if __name__ == '__main__':
 
-    TEST_DATA_DIR = 'datasets/HKPU_A_CROP_W25P_V2'  # 24.10.10 HKdb-2 test에 맞춰 변경함
-    SAVE_DIR = r'D:\DION4FR\msoi\output\HKdb-2\test_result'  # 24.10.13 HKdb-2 test에 맞춰 변경함
+    TEST_DATA_DIR = '/content/datasets/HKPU_A_CROP_W25P_V2' 
+    SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/HKdb-2/test_result' 
 
-    # TEST_DATA_DIR = 'datasets/HKPU_B_CROP_W25P_V2'  # 24.10.10 HKdb-1 test에 맞춰 변경함
-    # SAVE_DIR = r'D:\DION4FR\rec_loss\output\HKdb-1\test_result'  # 24.10.13 HKdb-1 test에 맞춰 변경함
+    # TEST_DATA_DIR = '/content/datasets/HKPU_B_CROP_W25P_V2' 
+    # SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/HKdb-1/test_result'  
+
+    # TEST_DATA_DIR = '/content/datasets/SDU_A_original_CROP_W25P_V2'  
+    # SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/SDdb-2/test_result' 
+
+    # TEST_DATA_DIR = '/content/datasets/SDU_B_original_CROP_W25P_V2' 
+    # SAVE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/SDdb-1/test_result'  
 
 
     def get_args():
@@ -90,29 +98,10 @@ if __name__ == '__main__':
     mean = [0.5, 0.5, 0.5]
     std = [0.5, 0.5, 0.5]
 
-    config = {
-        'pre_step': pred_step,
-        'TYPE': 'swin_cross_attn_ResB_v2_student',  # 24.11.01 student model로 바꿈
-        'IMG_SIZE': 224,
-        'SWIN.PATCH_SIZE': 4,
-        'SWIN.IN_CHANS': 3,
-        'SWIN.EMBED_DIM': 96,
-        'SWIN.DEPTHS': [2, 2, 6, 2],
-        'SWIN.NUM_HEADS': [3, 6, 12, 24],
-        'SWIN.WINDOW_SIZE': 7,
-        'SWIN.MLP_RATIO': 4.,
-        'SWIN.QKV_BIAS': True,
-        'SWIN.QK_SCALE': None,
-        'DROP_RATE': 0.0,
-        'DROP_PATH_RATE': 0.2,
-        'SWIN.PATCH_NORM': True,
-        'TRAIN.USE_CHECKPOINT': False
-    }
-
     # List of epochs to test
     # epoch_list = list(range(211, 301, 1))  # 24.10.10 HKdb-2 test에 맞춰 변경함
     # epoch_list = list(range(210, 250, 10)) + list(range(260, 300, 10)) + list(range(310, 350, 10))  # 24.09.24 SDDB-2 test에 맞춰 변경함
-    epoch_list = list(range(200, 250, 50))
+    epoch_list = list(range(200, 550, 50))
 
     # epoch_list = []
     # for j in range(200, 510, 10):
@@ -129,7 +118,7 @@ if __name__ == '__main__':
 
     for epoch in epoch_list:
         # Construct weight path and save directory based on the epoch
-        load_weight_dir = f'D:/DION4FR/msoi/output/HKdb-2/checkpoints/Gen_former_{epoch}.pt'  # 24.10.10 HKdb-2 test에 맞춰 변경함
+        load_weight_dir = f'/content/drive/MyDrive/dq_unet_sep4_sobel_weight_10/output/HKdb-2/checkpoints/Gen_former_{epoch}.pt'  # 24.10.10 HKdb-2 test에 맞춰 변경함
         save_dir_epoch = join(SAVE_DIR, f'epoch_{epoch}')
 
         # Create save directory if not exists
@@ -137,7 +126,7 @@ if __name__ == '__main__':
 
         # Initialize the model
         print(f'Initializing model for epoch {epoch}...')
-        gen = build_model(config).cuda(0)
+        gen = DQ_Thin_Sep_UNet_4(n_channels=3, n_classes=3).cuda()  # U-net
 
         # Load pre-trained weight
         print(f'Loading model weight for epoch {epoch}...')
