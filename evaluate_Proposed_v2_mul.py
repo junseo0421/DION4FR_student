@@ -101,7 +101,8 @@ if __name__ == '__main__':
     # List of epochs to test
     # epoch_list = list(range(211, 301, 1))  # 24.10.10 HKdb-2 test에 맞춰 변경함
     # epoch_list = list(range(210, 250, 10)) + list(range(260, 300, 10)) + list(range(310, 350, 10))  # 24.09.24 SDDB-2 test에 맞춰 변경함
-    epoch_list = list(range(200, 550, 50))
+    # epoch_list = list(range(200, 550, 50))
+    epoch_list = [500]
 
     # epoch_list = []
     # for j in range(200, 510, 10):
