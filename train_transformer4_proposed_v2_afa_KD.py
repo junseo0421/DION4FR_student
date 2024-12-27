@@ -304,12 +304,12 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                 grid_I_pred_phase_out = normalize_image(I_pred_phase_out[0].detach().cpu())
 
                 phase_concatenated_img = torch.cat([grid_I_pred_phase, grid_I_pred_phase_out], dim=2)
-                writer.add_image(f'train/batch_{batch_idx}_phase_concatenated_image(in / out)',
+                writer.add_image(f'valid/batch_{batch_idx}_phase_concatenated_image(in / out)',
                                  torchvision.utils.make_grid(phase_concatenated_img), epoch)
 
                 # 세로로 이어 붙인 이미지 생성
                 concatenated_image = torch.cat([grid_teacher_pred, grid_I_pred, grid_I_pred_afa], dim=2)  # 세로 방향으로 연결
-                writer.add_image(f'train/batch_{batch_idx}_concatenated_image',
+                writer.add_image(f'valid/batch_{batch_idx}_concatenated_image',
                                  torchvision.utils.make_grid(concatenated_image), epoch)
 
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
