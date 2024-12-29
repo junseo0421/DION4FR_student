@@ -262,8 +262,8 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'SDdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/dq_unet_sep4_sobel_weight_20/output'
+    NAME_DATASET = 'HKdb-1'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/u_net_sep4_sobel_20/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'logs_all')
@@ -392,7 +392,7 @@ if __name__ == '__main__':
 
     # Initialize the model
     print('Initializing model...')
-    gen = DQ_Thin_Sep_UNet_4(n_channels=3, n_classes=3).cuda()  # U-Net student model
+    gen = Sep_UNet_4(n_channels=3, n_classes=3).cuda()  # U-Net student model
 
     # 24.10.11 모델 파라미터 수 출력
     print_model_parameters(gen)
