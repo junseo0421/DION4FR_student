@@ -178,7 +178,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
     acc_gen_adv_loss = 0
     acc_dis_adv_loss = 0
     acc_ssim_loss = 0
-    acc_total_sobel_loss = 0  # 24.10.15 fsp loss
+    acc_total_sobel_loss = 0  
 
     total_gen_loss = 0
 
