@@ -122,7 +122,7 @@ class DQ_Thin_Sep_UNet_4_Freq(nn.Module):  # m = 4, feature 1/8
         high = torch.tensor([[0, -0.25, 0], [-0.25, 0, -0.25], [0, -0.25, 0]], dtype=torch.float32)  ### make it 1
         high = high.unsqueeze(0).repeat(outchannel, 1, 1)
         high = high.unsqueeze(0).repeat(nchannel, 1, 1, 1)
-        return high
+        return high.to(next(self.parameters()).device)
 
     def forward(self, x):
         relu = torch.nn.ReLU()
