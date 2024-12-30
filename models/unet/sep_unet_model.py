@@ -89,7 +89,7 @@ class DQ_Thin_Sep_UNet_4(nn.Module):  # m = 4, feature 1/8
 
 
 class DQ_Thin_Sep_UNet_4_Freq(nn.Module):  # m = 4, feature 1/8
-    def __init__(self, n_channels, n_classes, bilinear=False):
+    def __init__(self, n_channels, n_classes, device, bilinear=False):
         super(DQ_Thin_Sep_UNet_4_Freq, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
@@ -112,17 +112,17 @@ class DQ_Thin_Sep_UNet_4_Freq(nn.Module):  # m = 4, feature 1/8
         # Output layer
         self.outc = (OutConv(4, n_classes))
 
-        self.highpass1 = self.creathighpass(4, 4)
-        self.highpass2 = self.creathighpass(8, 8)
+        self.highpass1 = self.creathighpass(4, 4, device)
+        self.highpass2 = self.creathighpass(8, 8, device)
 
         self.attention_weights1 = torch.nn.Parameter(torch.randn(4, 4, 1, 1))
         self.attention_weights2 = torch.nn.Parameter(torch.randn(8, 8, 1, 1))
 
-    def creathighpass(self, nchannel, outchannel):
+    def creathighpass(self, nchannel, outchannel, device):
         high = torch.tensor([[0, -0.25, 0], [-0.25, 0, -0.25], [0, -0.25, 0]], dtype=torch.float32)  ### make it 1
         high = high.unsqueeze(0).repeat(outchannel, 1, 1)
         high = high.unsqueeze(0).repeat(nchannel, 1, 1, 1)
-        return high.to(next(self.parameters()).device)
+        return high.to(device)
 
     def forward(self, x):
         relu = torch.nn.ReLU()
