@@ -114,9 +114,13 @@ class DQ_Thin_Sep_UNet_4_Freq(nn.Module):  # m = 4, feature 1/8
 
         self.highpass1 = self.creathighpass(4, 4, device)
         self.highpass2 = self.creathighpass(8, 8, device)
+        self.highpass3 = self.creathighpass(16, 16, device)
+        self.highpass4 = self.creathighpass(32, 32, device)
 
         self.attention_weights1 = torch.nn.Parameter(torch.randn(4, 4, 1, 1))
         self.attention_weights2 = torch.nn.Parameter(torch.randn(8, 8, 1, 1))
+        self.attention_weights3 = torch.nn.Parameter(torch.randn(16, 16, 1, 1))
+        self.attention_weights4 = torch.nn.Parameter(torch.randn(32, 32, 1, 1))
 
     def creathighpass(self, nchannel, outchannel, device):
         high = torch.tensor([[0, -0.25, 0], [-0.25, 0, -0.25], [0, -0.25, 0]], dtype=torch.float32)  ### make it 1
@@ -133,11 +137,25 @@ class DQ_Thin_Sep_UNet_4_Freq(nn.Module):  # m = 4, feature 1/8
         f_high1 = F.conv2d(x1, self.highpass1, padding=self.highpass1.size(-1) // 2)
 
         x2 = self.down1(x1)
-        f_high2 = F.conv2d(x2, self.highpass2, padding=self.highpass1.size(-1) // 2)
+        f_high2 = F.conv2d(x2, self.highpass2, padding=self.highpass2.size(-1) // 2)
 
         x3 = self.down2(x2)
+        f_high3 = F.conv2d(x3, self.highpass3, padding=self.highpass3.size(-1) // 2)
+
         x4 = self.down3(x3)
+        f_high4 = F.conv2d(x4, self.highpass4, padding=self.highpass4.size(-1) // 2)
+
         x5 = self.down4(x4)
+
+        f_high4 = relu(f_high4)
+        attn_map4 = torch.nn.functional.conv2d(f_high4, self.attention_weights4, padding=0)
+        attn_map4 = torch.nn.functional.softmax(attn_map4, dim=1)
+        x4h = attn_map4 * x4
+
+        f_high3 = relu(f_high3)
+        attn_map3 = torch.nn.functional.conv2d(f_high3, self.attention_weights3, padding=0)
+        attn_map3 = torch.nn.functional.softmax(attn_map3, dim=1)
+        x3h = attn_map3 * x3
 
         f_high2 = relu(f_high2)
         attn_map2 = torch.nn.functional.conv2d(f_high2, self.attention_weights2, padding=0)
@@ -150,8 +168,8 @@ class DQ_Thin_Sep_UNet_4_Freq(nn.Module):  # m = 4, feature 1/8
         x1h = attn_map1 * x1
 
         # decoder
-        x = self.up1(x5, x4)
-        x = self.up2(x, x3)
+        x = self.up1(x5, x4 + x4h)
+        x = self.up2(x, x3 + x3h)
         x = self.up3(x, x2 + x2h)
         x = self.up4(x, x1 + x1h)
 
