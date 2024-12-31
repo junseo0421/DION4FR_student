@@ -57,7 +57,7 @@ def print_model_parameters(gen):
 
     # 전체 모델 파라미터 수
     total_params = count_parameters(gen)
-    print(f"Total parameters in the Student model: {total_params}")
+    print(f"Total parameters in the gen model: {total_params}")
 
 # Training
 def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 recognizer
@@ -113,9 +113,9 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             total_ssim_loss = left_loss + right_loss
 
             ### Sobel loss
-            # sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
-            # sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
-            total_sobel_loss = sobel_loss(I_pred, gt)
+            sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
+            sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
+            total_sobel_loss = sobel_left_loss + sobel_right_loss
 
             sobel_loss_weight = 20.0
 
@@ -215,9 +215,9 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
             total_ssim_loss = left_loss + right_loss
 
             ### Sobel loss
-            # sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
-            # sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
-            total_sobel_loss = sobel_loss(I_pred, gt)
+            sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
+            sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
+            total_sobel_loss = sobel_left_loss + sobel_right_loss
 
             sobel_loss_weight = 20.0
 
@@ -263,7 +263,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
 
 if __name__ == '__main__':
     NAME_DATASET = 'HKdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/dq_u_net_sep4_sobel_20_freq/output'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/dq_u_net_sep4_sobel_freq_all/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'logs_all')
@@ -298,10 +298,6 @@ if __name__ == '__main__':
         parser.add_argument('--train_data_dir', type=str, help='directory of training data', default=TRAIN_DATA_DIR)
         # parser.add_argument('--test_data_dir', type=str, help='directory of testing data', default=TEST_DATA_DIR)
         # parser.add_argument('--gpu', type=str, help='gpu device', default='0')
-
-        # # teacher model weight
-        # parser.add_argument('--load_teacher_weight_dir', type=str, help='directory of teacher model weight',
-        #                     default=LOAD_TEACHER_WEIGHT_DIR)  # 24.09.19 Teacher weight dir
 
         opts = parser.parse_args()
         return opts
