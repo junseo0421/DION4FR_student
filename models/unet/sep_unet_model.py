@@ -123,7 +123,7 @@ class DQ_Thin_Sep_UNet_4_Freq(nn.Module):  # m = 4, feature 1/8
         self.attention_weights4 = torch.nn.Parameter(torch.randn(32, 32, 1, 1))
 
     def creathighpass(self, nchannel, outchannel, device):
-        high = torch.tensor([[0, -0.25, 0], [-0.25, 0, -0.25], [0, -0.25, 0]], dtype=torch.float32)  ### make it 1
+        high = torch.tensor([[0, -0.25, 0], [-0.25, 0, 0.25], [0, 0.25, 0]], dtype=torch.float32) 
         high = high.unsqueeze(0).repeat(outchannel, 1, 1)
         high = high.unsqueeze(0).repeat(nchannel, 1, 1, 1)
         return high.to(device)
@@ -167,17 +167,17 @@ class DQ_Thin_Sep_UNet_4_Freq(nn.Module):  # m = 4, feature 1/8
         attn_map1 = torch.nn.functional.softmax(attn_map1, dim=1)
         x1h = attn_map1 * x1
 
-        # # decoder
-        # x = self.up1(x5, x4 + x4h)
-        # x = self.up2(x, x3 + x3h)
-        # x = self.up3(x, x2 + x2h)
-        # x = self.up4(x, x1 + x1h)
-
         # decoder
-        x = self.up1(x5, x4h)
-        x = self.up2(x, x3h)
-        x = self.up3(x, x2h)
-        x = self.up4(x, x1h)
+        x = self.up1(x5, x4 + x4h)
+        x = self.up2(x, x3 + x3h)
+        x = self.up3(x, x2 + x2h)
+        x = self.up4(x, x1 + x1h)
+
+        # # decoder
+        # x = self.up1(x5, x4h)
+        # x = self.up2(x, x3h)
+        # x = self.up3(x, x2h)
+        # x = self.up4(x, x1h)
 
         #output
         logits = self.outc(x)
