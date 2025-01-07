@@ -220,37 +220,19 @@ class DQ_Thin_Sep_UNet_4_AFA(nn.Module):  # m = 4, feature 1/8
         self.low_attention_weights4 = torch.nn.Parameter(torch.randn(32, 32, 1, 1))
         self.high_attention_weights4 = torch.nn.Parameter(torch.randn(32, 32, 1, 1))
 
-        self.phase_processing_layers = nn.ModuleList([
-            nn.Sequential(
-                nn.Conv2d(4, 4, 3, 1, 1),
-                nn.BatchNorm2d(4),
-                nn.ReLU(inplace=True)
-            ),
-            nn.Sequential(
-                nn.Conv2d(8, 8, 3, 1, 1),
-                nn.BatchNorm2d(8),
-                nn.ReLU(inplace=True)
-            ),
-            nn.Sequential(
-                nn.Conv2d(16, 16, 3, 1, 1),
-                nn.BatchNorm2d(16),
-                nn.ReLU(inplace=True)
-            ),
-            nn.Sequential(
-                nn.Conv2d(32, 32, 3, 1, 1),
-                nn.BatchNorm2d(32),
-                nn.ReLU(inplace=True)
-            )
-        ])
+        self.concat_conv1 = nn.Conv2d(8, 4, kernel_size=3, padding=1)
+        self.concat_conv2 = nn.Conv2d(16, 8, kernel_size=3, padding=1)
+        self.concat_conv3 = nn.Conv2d(32, 16, kernel_size=3, padding=1)
+        self.concat_conv4 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
 
-    def phase_ifft(self, x):
-        phase_img = torch.exp(1j * x)
-        phase_img = torch.fft.ifftshift(phase_img)
-        phase_img = torch.fft.ifft2(phase_img, norm="ortho").real
+        self.bn1 = nn.BatchNorm2d(4)
+        self.bn2 = nn.BatchNorm2d(8)
+        self.bn3 = nn.BatchNorm2d(16)
+        self.bn4 = nn.BatchNorm2d(32)
 
-        return phase_img
+        self.relu = nn.ReLU(inplace=True)
 
-    def afa_module(self, x, low_attention_weight, high_attention_weight):
+    def afa_module(self, x, low_attention_weight, high_attention_weight):  # x는 0 ~ 1 값
         cuton = 0.1
         x_ft = torch.fft.fft2(x, norm="ortho")  # B, C, H, W
         x_shift = torch.fft.fftshift(x_ft)  # B, C, H, W
@@ -287,16 +269,7 @@ class DQ_Thin_Sep_UNet_4_AFA(nn.Module):  # m = 4, feature 1/8
 
         out = torch.fft.ifft2(x_fft, s=(x.size(-2), x.size(-1)), norm="ortho").real  # phase는 그대로 사용
 
-        # phase 시각화
-        phase_ifft = self.phase_ifft(phase)
-
-        # # conv2d를 거친 phase_img
-        # phase_conv = self.conv1(phase_ifft)
-        #
-        # output = phase_conv + out
-        #
-        # return output
-        return out, phase_ifft
+        return out
 
     def forward(self, x):
         # Encoder
@@ -307,27 +280,35 @@ class DQ_Thin_Sep_UNet_4_AFA(nn.Module):  # m = 4, feature 1/8
         x4 = self.down3(x3)  # (B, 32, 24, 24)
         x5 = self.down4(x4)   # (B, 64, 12, 12)
 
-        x4_out, x4_phase = self.afa_module(x4, self.low_attention_weights4, self.high_attention_weights4)
-        phase_conv4 = self.phase_processing_layers[3](x4_phase)
-        x4_attn = phase_conv4 + x4_out
+        x4_out = self.afa_module(x4, self.low_attention_weights4, self.high_attention_weights4)
+        x4_concat = torch.cat((x4, x4_out), dim=1)  # Concatenate along the channel dimension
+        x4_output = self.concat_conv4(x4_concat)  # Reduce back to original channels
+        x4_output = self.bn4(x4_output)  # BatchNormalization
+        x4_output = self.relu(x4_output)  # ReLU
 
-        x3_out, x3_phase = self.afa_module(x3, self.low_attention_weights3, self.high_attention_weights3)
-        phase_conv3 = self.phase_processing_layers[2](x3_phase)
-        x3_attn = phase_conv3 + x3_out
+        x3_out = self.afa_module(x3, self.low_attention_weights3, self.high_attention_weights3)
+        x3_concat = torch.cat((x3, x3_out), dim=1)  # Concatenate along the channel dimension
+        x3_output = self.concat_conv3(x3_concat)  # Reduce back to original channels
+        x3_output = self.bn3(x3_output)  # BatchNormalization
+        x3_output = self.relu(x3_output)  # ReLU
 
-        x2_out, x2_phase = self.afa_module(x2, self.low_attention_weights2, self.high_attention_weights2)
-        phase_conv2 = self.phase_processing_layers[1](x2_phase)
-        x2_attn = phase_conv2 + x2_out
+        x2_out = self.afa_module(x2, self.low_attention_weights2, self.high_attention_weights2)
+        x2_concat = torch.cat((x2, x2_out), dim=1)  # Concatenate along the channel dimension
+        x2_output = self.concat_conv2(x2_concat)  # Reduce back to original channels
+        x2_output = self.bn2(x2_output)  # BatchNormalization
+        x2_output = self.relu(x2_output)  # ReLU
 
-        x1_out, x1_phase = self.afa_module(x1, self.low_attention_weights1, self.high_attention_weights1)
-        phase_conv1 = self.phase_processing_layers[0](x1_phase)
-        x1_attn = phase_conv1 + x1_out
+        x1_out = self.afa_module(x1, self.low_attention_weights1, self.high_attention_weights1)
+        x1_concat = torch.cat((x1, x1_out), dim=1)  # Concatenate along the channel dimension
+        x1_output = self.concat_conv1(x1_concat)  # Reduce back to original channels
+        x1_output = self.bn1(x1_output)  # BatchNormalization
+        x1_output = self.relu(x1_output)  # ReLU
 
         # decoder
-        x = self.up1(x5, x4_attn)
-        x = self.up2(x, x3_attn)
-        x = self.up3(x, x2_attn)
-        x = self.up4(x, x1_attn)
+        x = self.up1(x5, x4_output)
+        x = self.up2(x, x3_output)
+        x = self.up3(x, x2_output)
+        x = self.up4(x, x1_output)
 
         #output
         logits = self.outc(x)
