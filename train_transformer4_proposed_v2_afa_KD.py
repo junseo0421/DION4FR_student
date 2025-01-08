@@ -59,22 +59,12 @@ def print_model_parameters(gen):
     total_params = count_parameters(gen)
     print(f"Total parameters in the Student model: {total_params}")
 
-def normalize_image(tensor, min_value=None, max_value=None):
-    """
-    텐서를 [0, 1] 범위로 정규화합니다.
-    Args:
-        tensor: 정규화할 텐서
-        min_value: 최소값 (None이면 텐서의 최소값 사용)
-        max_value: 최대값 (None이면 텐서의 최대값 사용)
-    Returns:
-        정규화된 텐서
-    """
-    if min_value is None:
-        min_value = tensor.min()
-    if max_value is None:
-        max_value = tensor.max()
-    normalized_tensor = (tensor - min_value) / (max_value - min_value + 1e-8)  # 1e-8은 안정성을 위해 추가
-    return normalized_tensor
+def phase(feature):
+    ft = torch.fft.fft2(feature, norm="ortho")
+    shift = torch.fft.fftshift(ft)
+    phase = torch.angle(shift)
+
+    return phase
 
 # Training
 def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):  #24.09.19 recognizer
@@ -85,13 +75,16 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
     mae = nn.L1Loss().cuda(0)  # 평균 절대 오차(MAE)를 사용하여 픽셀 간의 차이 계산
     mrf = IDMRFLoss(device=0)  # 텍스처 일관성 평가
     ssim_loss = SSIM_loss().cuda(0)  # 구조적 유사성
+    sobel_loss = Sobel_loss().cuda(0)
 
     acc_pixel_rec_loss = 0
     acc_mrf_loss = 0
     acc_gen_adv_loss = 0
     acc_dis_adv_loss = 0
     acc_ssim_loss = 0
-    # acc_original_kd_loss = 0  # 24.10.14 original KD loss
+    acc_total_sobel_loss = 0
+
+    acc_original_kd_loss = 0  # 24.10.14 original KD loss
     acc_afa_loss = 0  # 24.12.10 feature KD loss
 
     total_gen_loss = 0
@@ -107,12 +100,10 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
 
             ## feature size 맞춰주기 f_de 와 f_en
             ## Generate Image
-            total_step_start_time = time.time()
 
-            I_pred, _ = gen(mask_img)
-            # I_pred, features_s = gen(mask_img)
-            # f1_s, f2_s, f3_s, f4_s, f5_s = features_s["x1"], features_s["x2"], features_s["x3"], features_s["x4"], features_s["x5"]
-            # f5_s = features_s["x5"]
+            # I_pred, _ = gen(mask_img)
+            I_pred, features_s = gen(mask_img)
+            f1_s, f2_s, f3_s, f4_s, f5_s = features_s["x1"], features_s["x2"], features_s["x3"], features_s["x4"], features_s["x5"]
 
             mask_pred = I_pred[:, :, :, 32:32 + 128]  # 생성된 image의 일부분 선택
 
@@ -133,47 +124,40 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
             ### SSIM loss
             left_loss = ssim_loss(I_pred[:, :, :, 0:32], I_pred[:, :, :, 32:64])
             right_loss = ssim_loss(I_pred[:, :, :, 160:192], I_pred[:, :, :, 128:160])
-            total_ssim_loss = left_loss + right_loss
+            total_ssim_loss = left_loss + right_loss\
+
+            ### Sobel loss
+            sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
+            sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
+            total_sobel_loss = sobel_left_loss + sobel_right_loss
+
+            sobel_loss_weight = 20.0
+
+            total_sobel_loss = total_sobel_loss * sobel_loss_weight
 
             ### original KD loss
             with torch.no_grad():
-                teacher_pred, _ = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
-                teacher_pred_freq = torch.fft.fft2(teacher_pred, norm="ortho")  # B, C, H, W / shift 하면 안 됨
-                # teacher_pred, features_t = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
-                # f1_t, f2_t, f3_t, f4_t, f5_t = features_t["x1"], features_t["x2"], features_t["x3"], features_t["x4"], features_t["x5"]
-                # f5_t = features_t["x5"]
+                # teacher_pred, _ = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
+                teacher_pred, features_t = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
+                f1_t, f2_t, f3_t, f4_t, f5_t = features_t["x1"], features_t["x2"], features_t["x3"], features_t["x4"], features_t["x5"]
 
-            # original_kd_loss = mae(teacher_pred, I_pred) * 20  # 가중치는 pxiel_rec_loss와 똑같이 설정. 나중에 조절 필요할 수도
+            original_kd_loss = mae(teacher_pred, I_pred) * 20  # 가중치는 pxiel_rec_loss와 똑같이 설정. 나중에 조절 필요할 수도
 
             ### feature kd loss
-            I_pred_freq, I_pred_mag, I_pred_mag_out, I_pred_afa = fam_out(I_pred)
-            # afa_loss = mse(I_pred_afa, teacher_pred) * 10
-            afa_loss = mae(I_pred_freq, teacher_pred_freq) * 100
-
-            if batch_idx == 0 or batch_idx == 1 or batch_idx == 2:
-                # 이미지 정규화
-                grid_teacher_pred = normalize_image(teacher_pred[0].detach().cpu())  # [-3, 3] 등 다양한 범위를 [0, 1]로 변환
-                grid_I_pred = normalize_image(I_pred[0].detach().cpu())
-                grid_I_pred_afa = normalize_image(I_pred_afa[0].detach().cpu())
-
-                grid_I_pred_mag = normalize_image(I_pred_mag[0].detach().cpu())
-                grid_I_pred_mag_out = normalize_image(I_pred_mag_out[0].detach().cpu())
-
-                mag_concatenated_img = torch.cat([grid_I_pred_mag, grid_I_pred_mag_out], dim=2)
-                writer.add_image(f'train/batch_{batch_idx}_mag_concatenated_image(in / out)',
-                                 torchvision.utils.make_grid(mag_concatenated_img), epoch)
-
-                # 세로로 이어 붙인 이미지 생성
-                concatenated_image = torch.cat([grid_teacher_pred, grid_I_pred, grid_I_pred_afa], dim=2)  # 세로 방향으로 연결
-                writer.add_image(f'train/batch_{batch_idx}_concatenated_image',
-                                 torchvision.utils.make_grid(concatenated_image), epoch)
+            afa_loss = (
+                    mse(afa1(f1_s, phase(f1_t)), f1_t) +
+                    mse(afa2(f2_s, phase(f2_t)), f2_t) +
+                    mse(afa3(f3_s, phase(f3_t)), f3_t) +
+                    mse(afa4(f4_s, phase(f4_t)), f4_t) +
+                    mse(afa5(f5_s, phase(f5_t)), f5_t)
+            ) * 2
 
             # ## Update Generator
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
 
             # 24.10.14 original kd loss
-            # gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + original_kd_loss + afa_loss
-            gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + afa_loss
+            gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss + original_kd_loss + afa_loss
+            # gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + afa_loss
 
             opt_gen.zero_grad()
             gen_loss.backward()
@@ -184,23 +168,19 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
             acc_mrf_loss += mrf_loss.data
             acc_dis_adv_loss += dis_adv_loss.data
             acc_ssim_loss += total_ssim_loss
-            # acc_original_kd_loss += original_kd_loss.data  # 24.10.14 Original kd Loss
+            acc_total_sobel_loss += total_sobel_loss
+
+            acc_original_kd_loss += original_kd_loss.data  # 24.10.14 Original kd Loss
             acc_afa_loss += afa_loss.data
 
             total_gen_loss += gen_loss.data
-
-            # fam_out 파라미터 값 가져오기
-            low_param_value = fam_out.low_param.item()
-            high_param_value = fam_out.high_param.item()
-            # rate1_value = fam_out.rate1.item()
 
             # tqdm의 상태 업데이트
             pbar.update(1)
             pbar.set_postfix({'gen_loss': gen_loss.item(),
                               'dis_loss': dis_loss.item(),
-                              'afa_loss': afa_loss.item(),
-                              'low_param': f"{low_param_value:.4f}",  # low_param 값 표시
-                              'high_param': f"{high_param_value:.4f}"
+                              'sobel_loss': total_sobel_loss.item(),
+                              'afa_loss': afa_loss.item()
                               })
 
     ## Tensor board
@@ -210,8 +190,10 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
                        epoch)
     writer.add_scalars('train/generator_loss', {'Adversarial Loss': acc_gen_adv_loss / len(train_loader.dataset)},
                        epoch)
-    # writer.add_scalars('train/generator_loss', {'Original KD Loss': acc_original_kd_loss / len(train_loader.dataset)},
-    #                    epoch)  # 24.10.14 Original kd Loss
+    writer.add_scalars('train/generator_loss',
+                       {'sobel_loss': acc_total_sobel_loss / len(train_loader.dataset)}, epoch)
+    writer.add_scalars('train/generator_loss', {'Original KD Loss': acc_original_kd_loss / len(train_loader.dataset)},
+                       epoch)  # 24.10.14 Original kd Loss
     writer.add_scalars('train/afa_loss', {'AFA Loss': acc_afa_loss / len(train_loader.dataset)},
                        epoch)  # 24.10.14 Feature kd Loss
     writer.add_scalars('train/SSIM_loss', {'total gen Loss': acc_ssim_loss / len(train_loader.dataset)},
@@ -230,13 +212,16 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
     mae = nn.L1Loss().cuda(0)
     mrf = IDMRFLoss(device=0)
     ssim_loss = SSIM_loss().cuda(0)
+    sobel_loss = Sobel_loss().cuda(0)
 
     acc_pixel_rec_loss = 0
     acc_mrf_loss = 0
     acc_gen_adv_loss = 0
     acc_dis_adv_loss = 0
     acc_ssim_loss = 0
-    # acc_original_kd_loss = 0  # 24.10.14 original KD loss
+    acc_total_sobel_loss = 0  # 24.10.15 fsp loss
+
+    acc_original_kd_loss = 0  # 24.10.14 original KD loss
     acc_afa_loss = 0
 
     total_gen_loss = 0
@@ -251,13 +236,11 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
             iner_img = gt[:, :, :, 32:32 + 128]
 
-            ## feature size match f_de and f_en
             ## Generate Image
             with torch.no_grad():
-                I_pred, _ = gen(mask_img)
-                # I_pred, features_s = gen(mask_img)
-                # f1_s, f2_s, f3_s, f4_s, f5_s = features_s["x1"], features_s["x2"], features_s["x3"], features_s["x4"], features_s["x5"]
-                # f5_s = features_s["x5"]
+                # I_pred, _ = gen(mask_img)
+                I_pred, features_s = gen(mask_img)
+                f1_s, f2_s, f3_s, f4_s, f5_s = features_s["x1"], features_s["x2"], features_s["x3"], features_s["x4"], features_s["x5"]
 
             mask_pred = I_pred[:, :, :, 32:32 + 128]
 
@@ -280,45 +263,37 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             right_loss = ssim_loss(I_pred[:, :, :, 160:192], I_pred[:, :, :, 128:160])
             total_ssim_loss = left_loss + right_loss
 
+            ### Sobel loss
+            sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
+            sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
+            total_sobel_loss = sobel_left_loss + sobel_right_loss
+
+            sobel_loss_weight = 20.0
+
+            total_sobel_loss = total_sobel_loss * sobel_loss_weight
+
             ### original KD loss
             with torch.no_grad():
-                teacher_pred, _ = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
-                teacher_pred_freq = torch.fft.fft2(teacher_pred, norm="ortho")  # B, C, H, W
-                # teacher_pred, features_t = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
-                # f1_t, f2_t, f3_t, f4_t, f5_t = features_t["x1"], features_t["x2"], features_t["x3"], features_t["x4"], features_t["x5"]
-                # f5_t = features_t["x5"]
+                # teacher_pred, _ = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
+                teacher_pred, features_t = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
+                f1_t, f2_t, f3_t, f4_t, f5_t = features_t["x1"], features_t["x2"], features_t["x3"], features_t["x4"], features_t["x5"]
 
-            # original_kd_loss = mae(teacher_pred, I_pred) * 20
+            original_kd_loss = mae(teacher_pred, I_pred) * 20
 
             ### feature KD loss
-            ### feature kd loss
-            I_pred_freq, I_pred_mag, I_pred_mag_out, I_pred_afa = fam_out(I_pred)
-            # afa_loss = mse(I_pred_afa, teacher_pred) * 10
-            afa_loss = mae(I_pred_freq, teacher_pred_freq) * 100
-
-            if batch_idx == 0 or batch_idx == 1 or batch_idx == 2:
-                # 이미지 정규화
-                grid_teacher_pred = normalize_image(teacher_pred[0].detach().cpu())  # [-3, 3] 등 다양한 범위를 [0, 1]로 변환
-                grid_I_pred = normalize_image(I_pred[0].detach().cpu())
-                grid_I_pred_afa = normalize_image(I_pred_afa[0].detach().cpu())
-
-                grid_I_pred_mag = normalize_image(I_pred_mag[0].detach().cpu())
-                grid_I_pred_mag_out = normalize_image(I_pred_mag_out[0].detach().cpu())
-
-                mag_concatenated_img = torch.cat([grid_I_pred_mag, grid_I_pred_mag_out], dim=2)
-                writer.add_image(f'valid/batch_{batch_idx}_mag_concatenated_image(in / out)',
-                                 torchvision.utils.make_grid(mag_concatenated_img), epoch)
-
-                # 세로로 이어 붙인 이미지 생성
-                concatenated_image = torch.cat([grid_teacher_pred, grid_I_pred, grid_I_pred_afa], dim=2)  # 세로 방향으로 연결
-                writer.add_image(f'valid/batch_{batch_idx}_concatenated_image',
-                                 torchvision.utils.make_grid(concatenated_image), epoch)
+            afa_loss = (
+                    mse(afa1(f1_s, phase(f1_t)), f1_t) +
+                    mse(afa2(f2_s, phase(f2_t)), f2_t) +
+                    mse(afa3(f3_s, phase(f3_t)), f3_t) +
+                    mse(afa4(f4_s, phase(f4_t)), f4_t) +
+                    mse(afa5(f5_s, phase(f5_t)), f5_t)
+            ) * 2
 
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
 
             # 24.10.14 original kd loss
-            # gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + original_kd_loss + afa_loss
-            gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + afa_loss
+            gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss + original_kd_loss + afa_loss
+            # gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + afa_loss
             opt_gen.zero_grad()
 
             acc_pixel_rec_loss += pixel_rec_loss.data
@@ -326,14 +301,16 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             acc_mrf_loss += mrf_loss.data
             acc_dis_adv_loss += dis_adv_loss.data
             acc_ssim_loss += total_ssim_loss.data
-            # acc_original_kd_loss += original_kd_loss.data  # 24.10.14 Original KD Loss
+            acc_total_sobel_loss += total_sobel_loss.data
+
+            acc_original_kd_loss += original_kd_loss.data
             acc_afa_loss += afa_loss.data
 
             total_gen_loss += gen_loss.data
 
             # tqdm의 상태 업데이트
             pbar.update(1)
-            pbar.set_postfix({'gen_loss': gen_loss.item(), 'dis_loss': dis_adv_loss.item()})
+            pbar.set_postfix({'gen_loss': gen_loss.item(), 'dis_loss': dis_adv_loss.item(), 'sobel_loss': total_sobel_loss.item(), 'afa_loss': afa_loss.item()})
 
 
     ## Tensor board
@@ -343,10 +320,12 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                        epoch)
     writer.add_scalars('valid/generator_loss', {'Adversarial Loss': acc_gen_adv_loss / len(valid_loader.dataset)},
                        epoch)
-    # writer.add_scalars('valid/generator_loss', {'Original KD Loss': acc_original_kd_loss / len(valid_loader.dataset)},
-    #                    epoch)  # 24.10.14 Original kd Loss
+    writer.add_scalars('valid/generator_loss', {'Original KD Loss': acc_original_kd_loss / len(valid_loader.dataset)},
+                       epoch)  # 24.10.14 Original kd Loss
+    writer.add_scalars('valid/generator_loss',
+                       {'sobel_loss': acc_total_sobel_loss / len(valid_loader.dataset)}, epoch)
     writer.add_scalars('valid/afa_loss', {'AFA Loss': acc_afa_loss / len(valid_loader.dataset)},
-                       epoch)  
+                       epoch)  # 24.12.09 Feature kd Loss
     writer.add_scalars('valid/SSIM_loss', {'total gen Loss': acc_ssim_loss / len(valid_loader.dataset)},
                        epoch)
     writer.add_scalars('valid/total_gen_loss', {'total gen Loss': total_gen_loss / len(valid_loader.dataset)},
@@ -355,8 +334,8 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'HKdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/afa_kd_out_only_between_freq_map_gf/output'
+    NAME_DATASET = 'SDdb-1'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/afa_kd_teacher_phase/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')  # 24.09.25 HKdb-2
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'logs_all')  # 24.09.25 HKdb-2
@@ -508,33 +487,24 @@ if __name__ == '__main__':
     # gen = build_model(config).cuda()  
     gen = DQ_Thin_Sep_UNet_4(n_channels=3, n_classes=3).cuda()  # U-Net student model
 
-    # fam1 = AFA_Module(in_channels=4, out_channels=32, shapes=192).cuda()
-    # fam2 = AFA_Module(in_channels=8, out_channels=64, shapes=96).cuda()
-    # fam3 = AFA_Module(in_channels=16, out_channels=128, shapes=48).cuda()
-    # fam4 = AFA_Module(in_channels=32, out_channels=256, shapes=24).cuda()
-    # fam5 = AFA_Module(in_channels=64, out_channels=512, shapes=12).cuda()
-
-    # fam_out = AFA_Module(in_channels=3, out_channels=3, shapes=192).cuda()
-    fam_out = Sep_AFA_Module(in_channels=3, out_channels=3, shapes=192).cuda()
+    afa1 = Phase_AFA_Module(in_channels=4, out_channels=32, shapes=192).cuda()
+    afa2 = Phase_AFA_Module(in_channels=8, out_channels=64, shapes=96).cuda()
+    afa3 = Phase_AFA_Module(in_channels=16, out_channels=128, shapes=48).cuda()
+    afa4 = Phase_AFA_Module(in_channels=32, out_channels=256, shapes=24).cuda()
+    afa5 = Phase_AFA_Module(in_channels=64, out_channels=512, shapes=12).cuda()
 
     # 24.10.11 모델 파라미터 수 출력
     print_model_parameters(gen)
 
     dis = MsImageDis().cuda()
 
-    # opt_gen = optim.Adam(gen.parameters(), lr=args.lr / 2, betas=(0, 0.9), weight_decay=1e-4)
-
-    # opt_gen = optim.Adam(
-    #     list(gen.parameters()) +
-    #     list(fam1.parameters()) +
-    #     list(fam2.parameters()) +
-    #     list(fam3.parameters()) +
-    #     list(fam4.parameters()) +
-    #     list(fam5.parameters()), lr=args.lr / 2, betas=(0, 0.9), weight_decay=1e-4
-    # )
-
     opt_gen = optim.Adam(
-        list(gen.parameters()) + list(fam_out.parameters()), lr=args.lr / 2, betas=(0, 0.9), weight_decay=1e-4
+        list(gen.parameters()) +
+        list(afa1.parameters()) +
+        list(afa2.parameters()) +
+        list(afa3.parameters()) +
+        list(afa4.parameters()) +
+        list(afa5.parameters()), lr=args.lr / 2, betas=(0, 0.9), weight_decay=1e-4
     )
 
     opt_dis = optim.Adam(dis.parameters(), lr=args.lr * 2, betas=(0, 0.9), weight_decay=1e-4)

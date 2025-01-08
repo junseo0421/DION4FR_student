@@ -205,135 +205,65 @@ class Sobel_loss(nn.Module):
 
 #         return output
 
-class Sep_AFA_Module(nn.Module):
+class Phase_AFA_Module(nn.Module):
     def __init__(self, in_channels, out_channels, shapes):
-        super(Sep_AFA_Module, self).__init__()
+        super(Phase_AFA_Module, self).__init__()
 
-        """
-        feat_s_shape, feat_t_shape
-        2D Fourier layer. It does FFT, linear transform, and Inverse FFT.    
-        """
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.shapes = shapes
 
-        # self.rate1 = torch.nn.Parameter(torch.ones(1))
-        # self.rate2 = torch.nn.Parameter(torch.Tensor(1))
+        self.low_attention_weight = torch.nn.Parameter(torch.randn(self.out_channels, self.out_channels, 1, 1))
+        self.high_attention_weight = torch.nn.Parameter(torch.randn(self.out_channels, self.out_channels, 1, 1))
 
-        self.scale = (1 / (self.in_channels * self.out_channels))
-        self.weights1 = nn.Parameter(
-            self.scale * torch.rand(self.in_channels, self.out_channels, self.shapes, self.shapes, dtype=torch.cfloat))
+        self.conv1 = nn.Conv2d(self.in_channels, self.out_channels, 1)
+        self.relu = nn.ReLU()
+        self.conv2 = nn.Conv2d(self.out_channels, self.out_channels, 1)
 
-        self.low_param = torch.nn.Parameter(torch.ones(1))
-        self.high_param = torch.nn.Parameter(torch.ones(1))
+    def forward(self, student_feature, teacher_phase):
+        cuton = 0.1
 
-        # self.w0 = nn.Conv2d(self.in_channels, self.out_channels, 1)
+        student_feature_1 = self.conv1(student_feature)
+        student_feature_relu = self.relu(student_feature_1)
+        student_feature_out = self.conv2(student_feature_relu)
 
-        # self.spatial_conv = nn.Conv2d(2, 1, kernel_size=3, stride=1, padding=1, bias=False)
-        # self.spatial_sigmoid = nn.Sigmoid()
+        x_ft = torch.fft.fft2(student_feature_out, norm="ortho")  # B, C, H, W
+        x_shift = torch.fft.fftshift(x_ft)  # B, C, H, W
 
-        # init_rate_half(self.rate1)
-        # init_rate_half(self.rate2)
-        # init_rate_half(self.low_param)
+        magnitude = torch.abs(x_shift)  # 크기 값 계산
+        # phase = torch.angle(x_shift)  # 위상 값 계산
 
-        # 추가된 BatchNorm과 ReLU
-        # self.bn = nn.BatchNorm2d(self.out_channels)
-        # self.relu = nn.ReLU()
-
-    def compl_mul2d(self, input, weights):
-        return torch.einsum("bixy,ioxy->boxy", input, weights)
-
-    # def spatial_attention(self, x):
-    #     # Compute mean and max along the channel dimension
-    #     avg_out = torch.mean(x, dim=1, keepdim=True)
-    #     max_out, _ = torch.max(x, dim=1, keepdim=True)  # 반환 값 values, indices
-    #     attention = torch.cat([avg_out, max_out], dim=1)
-    #     attention = self.spatial_conv(attention)
-    #     return self.spatial_sigmoid(attention)
-    
-    def phase_vis(self, x):
-        phase_img = torch.exp(1j * x)
-        phase_img = torch.fft.ifftshift(phase_img)
-        phase_img = torch.fft.ifft2(phase_img, norm="ortho").real
-        
-        return phase_img
-
-    def mag_vis(self, x):
-        magnitude = torch.log(1 + x)
-
-        return magnitude
-
-    def forward(self, x):
-        if isinstance(x, tuple):
-            x, cuton = x
-        else:
-            cuton = 0.1
-
-        batchsize = x.shape[0]
-        x_ft = torch.fft.fft2(x, norm="ortho")  # B, C, H, W
-
-        out_ft = self.compl_mul2d(x_ft, self.weights1)  # 복소수의 곱, channel 수 변환
-        batch_fftshift = torch.fft.fftshift(out_ft)  # B, C, H, W
-
-        # batch_fftshift = torch.fft.fftshift(x_ft)
-
-        # Magnitude와 Phase 분리
-        # mag_out = torch.abs(batch_fftshift)  # 크기 값 계산
-        magnitude = torch.abs(batch_fftshift)  # 크기 값 계산
-        phase = torch.angle(batch_fftshift)  # 위상 값 계산
-
-        # do the filter in here
-        h, w = batch_fftshift.shape[2:4]  # height and width
-        cy, cx = int(h / 2), int(w / 2)  # centerness
-        rh, rw = int(cuton * cy), int(cuton * cx)  # filter_size
-        # the value of center pixel is zero.
+        h, w = x_shift.shape[2:4]
+        cy, cx = int(h / 2), int(w / 2)
+        rh, rw = int(cuton * cy), int(cuton * cx)
 
         # 전체를 먼저 0으로 초기화
         low_pass = torch.zeros_like(magnitude)  # B, C, H, W
-
-        # 저주파수 영역만 복사
         low_pass[:, :, cy - rh:cy + rh, cx - rw:cx + rw] = magnitude[:, :, cy - rh:cy + rh, cx - rw:cx + rw]
 
-        # 고주파수 영역만 복사
         high_pass = magnitude - low_pass
 
-        # 가중치를 제한하고 정규화된 가중합 적용
-        # self.low_param.data.clamp_(min=-2.0, max=2.0)  # Sigmoid에 적합한 입력 범위로 제한
+        low_attn_map = F.conv2d(low_pass, self.low_attention_weight, padding=0)  # (B, C, H, W)에 (C, C, 1, 1)의 weight 로 conv 적용 (1x1 conv)
+        high_attn_map = F.conv2d(high_pass, self.high_attention_weight, padding=0)
 
-        # low_pass_weight = torch.sigmoid(self.low_param) + 0.5
-        # high_pass_weight = 2.0 - low_pass_weight  # 0 ~ 1 사이의 값
+        low_attn_map = F.softmax(low_attn_map, dim=1)
+        high_attn_map = F.softmax(high_attn_map, dim=1)
 
-        low_pass = low_pass * self.low_param
-        high_pass = high_pass * self.high_param
+        low_pass_att = low_attn_map * low_pass
+        high_pass_att = high_attn_map * high_pass
 
-        mag_out = low_pass + high_pass  # B, C, H, W
+        mag_out = low_pass_att + high_pass_att  # B, C, H, W
 
-        # spatial_attention_map = self.spatial_attention(phase)
-        # phase_out = phase * spatial_attention_map
+        real = mag_out * torch.cos(teacher_phase)  # 실수부
+        imag = mag_out * torch.sin(teacher_phase)  # 허수부
 
-        # # phase 시각화
-        # phase_vis = self.phase_vis(phase)
-        # phase_out_vis = self.phase_vis(phase_out)
-
-        # magnitude 시각화
-        mag_vis = self.mag_vis(magnitude)
-        mag_out_vis = self.mag_vis(mag_out)
-
-        # Magnitude와 Phase 결합 (복소수 생성)
-        real = mag_out * torch.cos(phase)  # 실수부
-        imag = mag_out * torch.sin(phase)  # 허수부
-
-        # 복소수 형태로 결합
         fre_out = torch.complex(real, imag)
 
-        # ifftshift 적용 (주파수 성분 복구)
         x_fft = torch.fft.ifftshift(fre_out)
 
-        # Return to physical space
-        out = torch.fft.ifft2(x_fft, s=(x.size(-2), x.size(-1)), norm="ortho").real
+        out = torch.fft.ifft2(x_fft, s=(student_feature_out.size(-2), student_feature_out.size(-1)), norm="ortho").real
 
-        # return output
-        return x_fft, mag_vis, mag_out_vis, out  # 다시 shift로 되돌린 complex, ifft 거친 feature map
+        return out
 
 def init_rate_half(tensor):
     if tensor is not None:
