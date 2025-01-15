@@ -60,7 +60,7 @@ def print_model_parameters(gen):
     print(f"Total parameters in the gen model: {total_params}")
 
 # Training
-def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 recognizer
+def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  # 24.09.19 recognizer
     gen.train()
     dis.train()
 
@@ -68,14 +68,14 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
     mae = nn.L1Loss().cuda(0)  # 평균 절대 오차(MAE)를 사용하여 픽셀 간의 차이 계산
     mrf = IDMRFLoss(device=0)  # 텍스처 일관성 평가
     ssim_loss = SSIM_loss().cuda(0)  # 구조적 유사성
-    sobel_loss = Sobel_loss().cuda(0)
+    # sobel_loss = Sobel_loss().cuda(0)
 
     acc_pixel_rec_loss = 0
     acc_mrf_loss = 0
     acc_gen_adv_loss = 0
     acc_dis_adv_loss = 0
     acc_ssim_loss = 0
-    acc_total_sobel_loss = 0 
+    # acc_total_sobel_loss = 0
 
     total_gen_loss = 0
 
@@ -112,19 +112,20 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             right_loss = ssim_loss(I_pred[:, :, :, 160:192], I_pred[:, :, :, 128:160])
             total_ssim_loss = left_loss + right_loss
 
-            ### Sobel loss
-            sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
-            sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
-            total_sobel_loss = sobel_left_loss + sobel_right_loss
-
-            sobel_loss_weight = 20.0
-
-            total_sobel_loss = total_sobel_loss * sobel_loss_weight
+            # ### Sobel loss
+            # sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
+            # sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
+            # total_sobel_loss = sobel_left_loss + sobel_right_loss
+            #
+            # sobel_loss_weight = 20.0
+            #
+            # total_sobel_loss = total_sobel_loss * sobel_loss_weight
 
             # ## Update Generator
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
 
-            gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss
+            # gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss
+            gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss
 
             opt_gen.zero_grad()
             gen_loss.backward()
@@ -135,15 +136,14 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             acc_mrf_loss += mrf_loss.data
             acc_dis_adv_loss += dis_adv_loss.data
             acc_ssim_loss += total_ssim_loss
-            acc_total_sobel_loss += total_sobel_loss
+            # acc_total_sobel_loss += total_sobel_loss
 
             total_gen_loss += gen_loss.data
 
             # tqdm의 상태 업데이트
             pbar.update(1)
             pbar.set_postfix({'gen_loss': gen_loss.item(),
-                              'dis_loss': dis_loss.item(),
-                              'sobel_loss': total_sobel_loss.item()
+                              'dis_loss': dis_loss.item()
                               })
 
     ## Tensor board
@@ -151,8 +151,8 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
                        {'Pixel Reconstruction Loss': acc_pixel_rec_loss / len(train_loader.dataset)}, epoch)
     writer.add_scalars('train/generator_loss', {'Texture Consistency Loss': acc_mrf_loss / len(train_loader.dataset)},
                        epoch)
-    writer.add_scalars('train/Sobel_loss',
-                       {'sobel_loss': acc_total_sobel_loss / len(train_loader.dataset)}, epoch)
+    # writer.add_scalars('train/Sobel_loss',
+    #                    {'sobel_loss': acc_total_sobel_loss / len(train_loader.dataset)}, epoch)
     writer.add_scalars('train/generator_loss', {'Adversarial Loss': acc_gen_adv_loss / len(train_loader.dataset)},
                        epoch)
     writer.add_scalars('train/SSIM_loss', {'total gen Loss': acc_ssim_loss / len(train_loader.dataset)},
@@ -161,6 +161,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
                        epoch)
     writer.add_scalars('train/discriminator_loss', {'Adversarial Loss': acc_dis_adv_loss / len(train_loader.dataset)},
                        epoch)
+
 
 # Training
 def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
@@ -171,14 +172,14 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
     mae = nn.L1Loss().cuda(0)
     mrf = IDMRFLoss(device=0)
     ssim_loss = SSIM_loss().cuda(0)
-    sobel_loss = Sobel_loss().cuda(0)
+    # sobel_loss = Sobel_loss().cuda(0)
 
     acc_pixel_rec_loss = 0
     acc_mrf_loss = 0
     acc_gen_adv_loss = 0
     acc_dis_adv_loss = 0
     acc_ssim_loss = 0
-    acc_total_sobel_loss = 0  
+    # acc_total_sobel_loss = 0
 
     total_gen_loss = 0
 
@@ -214,18 +215,19 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
             right_loss = ssim_loss(I_pred[:, :, :, 160:192], I_pred[:, :, :, 128:160])
             total_ssim_loss = left_loss + right_loss
 
-            ### Sobel loss
-            sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
-            sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
-            total_sobel_loss = sobel_left_loss + sobel_right_loss
-
-            sobel_loss_weight = 20.0
-
-            total_sobel_loss = total_sobel_loss * sobel_loss_weight
+            # ### Sobel loss
+            # sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
+            # sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
+            # total_sobel_loss = sobel_left_loss + sobel_right_loss
+            #
+            # sobel_loss_weight = 20.0
+            #
+            # total_sobel_loss = total_sobel_loss * sobel_loss_weight
 
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
 
-            gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss
+            # gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss
+            gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss
             opt_gen.zero_grad()
 
             acc_pixel_rec_loss += pixel_rec_loss.data
@@ -233,25 +235,23 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
             acc_mrf_loss += mrf_loss.data
             acc_dis_adv_loss += dis_adv_loss.data
             acc_ssim_loss += total_ssim_loss.data
-            acc_total_sobel_loss += total_sobel_loss.data
+            # acc_total_sobel_loss += total_sobel_loss.data
 
             total_gen_loss += gen_loss.data
 
             # tqdm의 상태 업데이트
             pbar.update(1)
             pbar.set_postfix({'gen_loss': gen_loss.item(),
-                              'dis_loss': dis_loss.item(),
-                              'sobel_loss': total_sobel_loss.item()
+                              'dis_loss': dis_loss.item()
                               })
-        
 
     ## Tensor board
     writer.add_scalars('valid/generator_loss',
                        {'Pixel Reconstruction Loss': acc_pixel_rec_loss / len(valid_loader.dataset)}, epoch)
     writer.add_scalars('valid/generator_loss', {'Texture Consistency Loss': acc_mrf_loss / len(valid_loader.dataset)},
                        epoch)
-    writer.add_scalars('valid/Sobel_loss',
-                       {'sobel_loss': acc_total_sobel_loss / len(valid_loader.dataset)}, epoch)
+    # writer.add_scalars('valid/Sobel_loss',
+    #                    {'sobel_loss': acc_total_sobel_loss / len(valid_loader.dataset)}, epoch)
     writer.add_scalars('valid/generator_loss', {'Adversarial Loss': acc_gen_adv_loss / len(valid_loader.dataset)},
                        epoch)
     writer.add_scalars('valid/SSIM_loss', {'total gen Loss': acc_ssim_loss / len(valid_loader.dataset)},
@@ -263,7 +263,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
 
 if __name__ == '__main__':
     NAME_DATASET = 'HKdb-1'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/dq_u_net_sep4_sobel_afa/output'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/dq_u_net_sep4_afa/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'logs_all')
