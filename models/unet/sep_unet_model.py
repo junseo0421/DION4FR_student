@@ -184,7 +184,7 @@ class DQ_Thin_Sep_UNet_4(nn.Module):  # m = 4, feature 1/8
 #         return logits, {"x1": x1, "x2": x2, "x3": x3, "x4": x4, "x5": x5}
 
 
- class Sep_UNet_4_AFA(nn.Module):
+class Sep_UNet_4_AFA(nn.Module):
     def __init__(self, n_channels, n_classes, bilinear=False):
         super(Sep_UNet_4_AFA, self).__init__()
         self.n_channels = n_channels
