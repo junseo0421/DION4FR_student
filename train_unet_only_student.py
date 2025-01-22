@@ -88,7 +88,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             ## feature size 맞춰주기 f_de 와 f_en
             ## Generate Image
             total_step_start_time = time.time()
-            I_pred = gen(mask_img)
+            I_pred, _ = gen(mask_img)
 
             mask_pred = I_pred[:, :, :, 32:32 + 128]  # 생성된 image의 일부분 선택
 
@@ -177,7 +177,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
 
             ## Generate Image
             with torch.no_grad():
-                I_pred = gen(mask_img)
+                I_pred, _ = gen(mask_img)
 
             mask_pred = I_pred[:, :, :, 32:32 + 128]
 
