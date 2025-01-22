@@ -391,7 +391,8 @@ if __name__ == '__main__':
     # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # gen = DQ_Thin_Sep_UNet_4_Freq(n_channels=3, n_classes=3, device=device).to(device)  # U-Net student model
     # gen = DQ_Thin_Sep_UNet_4_AFA(n_channels=3, n_classes=3).cuda()
-    gen = D_Sep_UNet_4_AFA(n_channels=3, n_classes=3).cuda()
+    gen = V_Thin_Sep_UNet_4_AFA(n_channels=3, n_classes=3).cuda()
+    # gen = D_Sep_UNet_4_AFA(n_channels=3, n_classes=3).cuda()
 
     # 24.10.11 모델 파라미터 수 출력
     print_model_parameters(gen)
