@@ -88,7 +88,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             ## feature size 맞춰주기 f_de 와 f_en
             ## Generate Image
             total_step_start_time = time.time()
-            I_pred, _ = gen(mask_img)
+            I_pred = gen(mask_img)
 
             mask_pred = I_pred[:, :, :, 32:32 + 128]  # 생성된 image의 일부분 선택
 
@@ -177,7 +177,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
 
             ## Generate Image
             with torch.no_grad():
-                I_pred, _ = gen(mask_img)
+                I_pred = gen(mask_img)
 
             mask_pred = I_pred[:, :, :, 32:32 + 128]
 
@@ -235,8 +235,8 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'HKdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/v_u_net_sep4/output'
+    NAME_DATASET = 'SDdb-1'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/u_net/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'logs_all')
@@ -253,7 +253,7 @@ if __name__ == '__main__':
 
         parser.add_argument('--train_batch_size', type=int, help='batch size of training data', default=8)
         parser.add_argument('--test_batch_size', type=int, help='batch size of testing data', default=16)
-        parser.add_argument('--epochs', type=int, help='number of epoches', default=600)
+        parser.add_argument('--epochs', type=int, help='number of epoches', default=500)
         parser.add_argument('--lr', type=float, help='learning rate', default=0.0004)
         parser.add_argument('--alpha', type=float, help='learning rate decay for discriminator', default=0.1)
         parser.add_argument('--load_pretrain', type=bool, help='load pretrain weight', default=True)  # pretrain !!
@@ -365,7 +365,7 @@ if __name__ == '__main__':
     # gen = UNet(n_channels=3, n_classes=3).cuda()  # student model
     # gen = Q_Thin_Sep_UNet_4(n_channels=3, n_classes=3).cuda()
     # gen = DQ_Thin_Sep_UNet_4(n_channels=3, n_classes=3).cuda()
-    gen = Sep_UNet_4(n_channels=3, n_classes=3).cuda()
+    gen = UNet(n_channels=3, n_classes=3).cuda()
 
     # 24.10.11 모델 파라미터 수 출력
     print_model_parameters(gen)
