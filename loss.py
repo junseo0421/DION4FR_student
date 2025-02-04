@@ -40,31 +40,6 @@ class SSIM_loss(nn.Module):
         return torch.mean(1-torch.clamp((SSIM_n / SSIM_d) / 2, 0, 1))
 
 
-class MLP_Module(nn.Module):
-    def __init__(self, in_channels, out_channels, pooling=True):
-        super(MLP_Module, self).__init__()
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.pooling = pooling
-
-        self.conv = nn.Sequential(
-            nn.Conv2d(self.in_channels, self.out_channels, kernel_size=1),
-            nn.ReLU(),
-            nn.Conv2d(self.out_channels, self.out_channels, kernel_size=1)
-        )
-
-        if self.pooling:
-            self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-        else:
-            self.pool = nn.Identity()  # No pooling when pooling=False
-
-    def forward(self, x):
-        output = self.conv(x)
-        output = self.pool(output)  # Apply pooling only if pooling=True
-
-        return output
-
-
 class FSP(nn.Module):
     def __init__(self):
         super(FSP, self).__init__()
@@ -100,7 +75,7 @@ class AT(nn.Module):
         am = torch.sum(am, dim=1, keepdim=True)
         norm = torch.norm(am, dim=(2,3), keepdim=True)
         am = torch.div(am, norm+eps)
-        
+
         return am
 
 
@@ -121,7 +96,7 @@ class OFD(nn.Module):
         mask = (fm < 0.0).float()
         masked_fm = fm * mask
 
-        margin = masked_fm.sum(dim=(0,2,3), keepdim=True) / (mask.sum(dim=(0,2,3), keepdim=True)+eps)
+        margin = masked_fm.sum(dim=(0, 2, 3), keepdim=True) / (mask.sum(dim=(0, 2, 3), keepdim=True)+eps)
 
         return margin
 
@@ -148,7 +123,7 @@ class FFT_Module(nn.Module):
         super(FFT_Module, self).__init__()
 
     def forward(self, fm_s, fm_t):
-        loss = F.l1_loss(self.fft_complex(fm_s), self.fft_complex(fm_t))
+        loss = F.mse_loss(self.fft_complex(fm_s), self.fft_complex(fm_t))
         return loss
 
     def fft_complex(self, fm, eps=1e-6):
@@ -158,7 +133,7 @@ class FFT_Module(nn.Module):
 
 
 class RKD(nn.Module):
-    def __init__(self, w_dist, w_angle):
+    def __init__(self, w_dist=1, w_angle=2):
         super(RKD, self).__init__()
 
         self.w_dist = w_dist
@@ -211,235 +186,323 @@ class RKD(nn.Module):
         return feat_dist
 
 
-# class FAM_Module(nn.Module):
-#     def __init__(self, in_channels, out_channels, shapes):
-#         super(FAM_Module, self).__init__()
-#
-#         """
-#         feat_s_shape, feat_t_shape
-#         2D Fourier layer. It does FFT, linear transform, and Inverse FFT.
-#         """
-#         self.in_channels = in_channels
-#         self.out_channels = out_channels
-#         self.shapes = shapes
-#         #  print(self.shapes)
-#         self.rate1 = torch.nn.Parameter(torch.Tensor(1))
-#         self.rate2 = torch.nn.Parameter(torch.Tensor(1))
-#         # self.out_channels = feat_t_shape[1]
-#         self.scale = (1 / (self.in_channels * self.out_channels))
-#         self.weights1 = nn.Parameter(
-#             self.scale * torch.rand(self.in_channels, self.out_channels, self.shapes, self.shapes, dtype=torch.cfloat))
-#         self.w0 = nn.Conv2d(self.in_channels, self.out_channels // 2, 1)
-#
-#         self.spatial_conv = nn.Conv2d(2, 1, kernel_size=7, stride=1, padding=3, bias=False)
-#         self.spatial_sigmoid = nn.Sigmoid()
-#
-#         init_rate_half(self.rate1)
-#         init_rate_half(self.rate2)
-#
-#         # 추가된 BatchNorm과 ReLU
-#         self.bn = nn.BatchNorm2d(self.out_channels)
-#         self.relu = nn.ReLU()
-#
-#     def compl_mul2d(self, input, weights):
-#         return torch.einsum("bixy,ioxy->boxy", input, weights)
-#
-#     def spatial_attention(self, x):
-#         # Compute mean and max along the channel dimension
-#         avg_out = torch.mean(x, dim=1, keepdim=True)
-#         max_out, _ = torch.max(x, dim=1, keepdim=True)  # 반환 값 values, indices
-#         attention = torch.cat([avg_out, max_out], dim=1)
-#         attention = self.spatial_conv(attention)
-#         return self.spatial_sigmoid(attention)
-#
-#     def gaussian_hpf(self, shape, cutoff):
-#         rows, cols = shape
-#         crow, ccol = rows // 2, cols // 2  # 중심 좌표
-#         y, x = torch.meshgrid(torch.arange(rows), torch.arange(cols), indexing="ij")
-#         distance = torch.sqrt((x - ccol) ** 2 + (y - crow) ** 2)
-#         mask = 1 - torch.exp(- (distance ** 2) / (2 * (cutoff ** 2)))
-#         return mask
-#
-#     def forward(self, x):
-#         if isinstance(x, tuple):
-#             x, cuton = x
-#         else:
-#             cuton = 0.1
-#             # cuton = 15
-#
-#         batchsize = x.shape[0]
-#         x_ft = torch.fft.fft2(x, norm="ortho")
-#         #  print(x_ft.shape)
-#         out_ft = self.compl_mul2d(x_ft, self.weights1)
-#         batch_fftshift = batch_fftshift2d(out_ft)
-#
-#         # do the filter in here
-#         h, w = batch_fftshift.shape[2:4]  # height and width
-#
-#         cy, cx = int(h / 2), int(w / 2)  # centerness
-#         rh, rw = int(cuton * cy), int(cuton * cx)  # filter_size
-#         # the value of center pixel is zero.
-#         batch_fftshift[:, :, cy - rh:cy + rh, cx - rw:cx + rw, :] = 0
-#
-#         # # Apply Gaussian HPF
-#         # gaussian_mask = self.gaussian_hpf((h, w), cutoff=cuton)
-#         # gaussian_mask = gaussian_mask.to(batch_fftshift.device)  # Ensure mask is on the same device
-#         # gaussian_mask = gaussian_mask.unsqueeze(0).unsqueeze(0).unsqueeze(-1)
-#         # batch_fftshift = batch_fftshift * gaussian_mask  # Apply HPF in frequency domain
-#
-#         # test with batch shift
-#         out_ft = batch_ifftshift2d(batch_fftshift)
-#         out_ft = torch.view_as_complex(out_ft)
-#         # Return to physical space
-#         out = torch.fft.ifft2(out_ft, s=(x.size(-2), x.size(-1)), norm="ortho").real
-#         out_1x1 = self.w0(x)
-#
-#         # Apply spatial attention
-#         spatial_attention_map = self.spatial_attention(out_1x1)
-#         out_spa = out_1x1 * spatial_attention_map
-#
-#         stacked = torch.stack([out_1x1, out_spa], dim=2)
-#         out2 = stacked.flatten(start_dim=1, end_dim=2)  # interleaved
-#
-#         # 최종 출력 계산 후 BatchNorm과 ReLU 적용
-#         output = self.rate1 * out + self.rate2 * out2
-#         output = self.bn(output)
-#         output = self.relu(output)
-#
-#         return output
+use_cuda = torch.cuda.is_available()
+device = torch.device("cuda" if use_cuda else "cpu")
+
+class SASA_Layer(nn.Module):
+    def __init__(self, in_channels, kernel_size=7, num_heads=8, image_size=224, inference=False):
+        super(SASA_Layer, self).__init__()
+        self.kernel_size = min(kernel_size, image_size)  # receptive field shouldn't be larger than input H/W
+        self.num_heads = num_heads
+        self.dk = self.dv = in_channels
+        self.dkh = self.dk // self.num_heads
+        self.dvh = self.dv // self.num_heads
+
+        assert self.dk % self.num_heads == 0, "dk should be divided by num_heads. (example: dk: 32, num_heads: 8)"
+        assert self.dk % self.num_heads == 0, "dv should be divided by num_heads. (example: dv: 32, num_heads: 8)"
+
+        self.k_conv = nn.Conv2d(self.dk, self.dk, kernel_size=1).to(device)
+        self.q_conv = nn.Conv2d(self.dk, self.dk, kernel_size=1).to(device)
+        self.v_conv = nn.Conv2d(self.dv, self.dv, kernel_size=1).to(device)
+
+        # Positional encodings
+        self.rel_encoding_h = nn.Parameter(torch.randn(self.dk // 2, self.kernel_size, 1), requires_grad=True)
+        self.rel_encoding_w = nn.Parameter(torch.randn(self.dk // 2, 1, self.kernel_size), requires_grad=True)
+
+        # later access attention weights
+        self.inference = inference
+        if self.inference:
+            self.register_parameter('weights', None)
+
+    def forward(self, x):
+        batch_size, _, height, width = x.size()
+
+        # Compute k, q, v
+        padded_x = F.pad(x, [(self.kernel_size - 1) // 2, (self.kernel_size - 1) - ((self.kernel_size - 1) // 2),
+                             (self.kernel_size - 1) // 2, (self.kernel_size - 1) - ((self.kernel_size - 1) // 2)])
+        k = self.k_conv(padded_x)
+        q = self.q_conv(x)
+        v = self.v_conv(padded_x)
+
+        # Unfold patches into [BS, num_heads*depth, horizontal_patches, vertical_patches, kernel_size, kernel_size]
+        k = k.unfold(2, self.kernel_size, 1).unfold(3, self.kernel_size, 1)
+        v = v.unfold(2, self.kernel_size, 1).unfold(3, self.kernel_size, 1)
+
+        # Reshape into [BS, num_heads, horizontal_patches, vertical_patches, depth_per_head, kernel_size*kernel_size]
+        k = k.reshape(batch_size, self.num_heads, height, width, self.dkh, -1)
+        v = v.reshape(batch_size, self.num_heads, height, width, self.dvh, -1)
+
+        # Reshape into [BS, num_heads, height, width, depth_per_head, 1]
+        q = q.reshape(batch_size, self.num_heads, height, width, self.dkh, 1)
+
+        qk = torch.matmul(q.transpose(4, 5), k)
+        qk = qk.reshape(batch_size, self.num_heads, height, width, self.kernel_size, self.kernel_size)
+
+        # Add positional encoding
+        qr_h = torch.einsum('bhxydz,cij->bhxyij', q, self.rel_encoding_h)
+        qr_w = torch.einsum('bhxydz,cij->bhxyij', q, self.rel_encoding_w)
+        qk += qr_h
+        qk += qr_w
+
+        qk = qk.reshape(batch_size, self.num_heads, height, width, 1, self.kernel_size * self.kernel_size)
+        weights = F.softmax(qk, dim=-1)
+
+        if self.inference:
+            self.weights = nn.Parameter(weights)
+
+        attn_out = torch.matmul(weights, v.transpose(4, 5))
+        attn_out = attn_out.reshape(batch_size, -1, height, width)
+        return attn_out
 
 
-# class AFA_Module(nn.Module):
-#     def __init__(self, in_channels, out_channels, shapes):
-#         super(AFA_Module, self).__init__()
-#
-#         """
-#         feat_s_shape, feat_t_shape
-#         2D Fourier layer. It does FFT, linear transform, and Inverse FFT.
-#         """
-#         self.in_channels = in_channels
-#         self.out_channels = out_channels
-#         self.shapes = shapes
-#         #  print(self.shapes)
-#         self.rate1 = torch.nn.Parameter(torch.Tensor(1))
-#         self.rate2 = torch.nn.Parameter(torch.Tensor(1))
-#         # self.out_channels = feat_t_shape[1]
-#         self.scale = (1 / (self.in_channels * self.out_channels))
-#         self.weights1 = nn.Parameter(
-#             self.scale * torch.rand(self.in_channels, self.out_channels, self.shapes, self.shapes, dtype=torch.cfloat))
-#         self.weights2 = nn.Parameter(
-#             self.scale * torch.rand(self.in_channels, self.out_channels, self.shapes, self.shapes, dtype=torch.cfloat))
-#         # self.low_param = None
-#         # self.high_param = None
-#
-#         self.low_param = torch.nn.Parameter(torch.Tensor(1))
-#
-#         self.w0 = nn.Conv2d(self.in_channels, self.out_channels, 1)
-#
-#         self.spatial_conv = nn.Conv2d(2, 1, kernel_size=5, stride=1, padding=2, bias=False)
-#         self.spatial_sigmoid = nn.Sigmoid()
-#
-#         init_rate_half(self.rate1)
-#         init_rate_half(self.rate2)
-#         init_rate_half(self.low_param)
-#
-#         # 추가된 BatchNorm과 ReLU
-#         self.bn = nn.BatchNorm2d(self.out_channels)
-#         self.relu = nn.ReLU()
-#
-#     def compl_mul2d(self, input, weights):
-#         return torch.einsum("bixy,ioxy->boxy", input, weights)
-#
-#     def spatial_attention(self, x):
-#         # Compute mean and max along the channel dimension
-#         avg_out = torch.mean(x, dim=1, keepdim=True)
-#         max_out, _ = torch.max(x, dim=1, keepdim=True)  # 반환 값 values, indices
-#         attention = torch.cat([avg_out, max_out], dim=1)
-#         attention = self.spatial_conv(attention)
-#         return self.spatial_sigmoid(attention)
-#
-#     def forward(self, x):
-#         if isinstance(x, tuple):
-#             x, cuton = x
-#         else:
-#             cuton = 0.1
-#
-#         batchsize = x.shape[0]
-#         x_ft = torch.fft.fft2(x, norm="ortho")  # B, C, H, W
-#         #  print(x_ft.shape)
-#         out_ft = self.compl_mul2d(x_ft, self.weights1)  # 복소수의 곱, channel 수 변환
-#         batch_fftshift = torch.fft.fftshift(out_ft)  # B, C, H, W
-#
-#         # Magnitude와 Phase 분리
-#         magnitude = torch.abs(batch_fftshift)  # B, C, H, W
-#         phase = torch.angle(batch_fftshift)  # B, C, H, W
-#
-#         # do the filter in here
-#         h, w = batch_fftshift.shape[2:4]  # height and width
-#         cy, cx = int(h / 2), int(w / 2)  # centerness
-#         rh, rw = int(cuton * cy), int(cuton * cx)  # filter_size
-#         # the value of center pixel is zero.
-#
-#         # 전체를 먼저 0으로 초기화
-#         low_pass = torch.zeros_like(magnitude)  # B, C, H, W
-#
-#         # 저주파수 영역만 복사
-#         low_pass[:, :, cy - rh:cy + rh, cx - rw:cx + rw] = magnitude[:, :, cy - rh:cy + rh, cx - rw:cx + rw]
-#
-#         # 고주파수 영역만 복사
-#         high_pass = magnitude - low_pass
-#
-#         # 가중치를 제한하고 정규화된 가중합 적용
-#         low_pass_weight = 0.5 + torch.sigmoid(self.low_param)
-#         high_pass_weight = 2.0 - low_pass_weight  # 0.5 ~ 1.5 사이의 값
-#
-#         low_pass = low_pass * low_pass_weight
-#         high_pass = high_pass * high_pass_weight
-#
-#         mag_out = low_pass + high_pass  # B, C, H, W
-#
-#         spatial_attention_map = self.spatial_attention(phase)
-#         phase_out = phase * spatial_attention_map  # B, C, H, W
-#
-#         # Magnitude와 Phase 결합 (복소수 생성)
-#         real = mag_out * torch.cos(phase_out)  # 실수부, (B, C, H, W)
-#         imag = mag_out * torch.sin(phase_out)  # 허수부, (B, C, H, W)
-#
-#         # 복소수 형태로 결합
-#         fre_out = torch.complex(real, imag)
-#
-#         # batch_fftshift[:, :, cy - rh:cy + rh, cx - rw:cx + rw, :] = 0
-#
-#         # ifftshift 적용 (주파수 성분 복구)
-#         x_fft = torch.fft.ifftshift(fre_out)
-#
-#         # Return to physical space
-#         out = torch.fft.ifft2(x_fft, s=(x.size(-2), x.size(-1)), norm="ortho").real
-#
-#         out2 = self.w0(x)
-#
-#         # 최종 출력 계산 후 BatchNorm과 ReLU 적용
-#         # output = self.rate1 * out + self.rate2 * out2
-#
-#         weight_sum = torch.sigmoid(self.rate1) + torch.sigmoid(self.rate2)
-#
-#         normalized_rate1 = torch.sigmoid(self.rate1) / weight_sum
-#         normalized_rate2 = torch.sigmoid(self.rate2) / weight_sum
-#
-#         output = normalized_rate1 * out + normalized_rate2 * out2
-#
-#         output = self.bn(output)
-#         output = self.relu(output)
-#
-#         return output
-#
-# def init_rate_half(tensor):
-#     if tensor is not None:
-#         tensor.data.fill_(0.5)
-#
-# def init_rate_0(tensor):
-#     if tensor is not None:
-#         tensor.data.fill_(0.)
+class FAM_Module(nn.Module):
+    def __init__(self, in_channels, out_channels, shapes):
+        super(FAM_Module, self).__init__()
+
+        """
+        feat_s_shape, feat_t_shape
+        2D Fourier layer. It does FFT, linear transform, and Inverse FFT.    
+        """
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.shapes = shapes
+        #  print(self.shapes)
+        self.rate1 = torch.nn.Parameter(torch.Tensor(1))
+        self.rate2 = torch.nn.Parameter(torch.Tensor(1))
+        # self.out_channels = feat_t_shape[1]
+        self.scale = (1 / (self.in_channels * self.out_channels))
+        self.weights1 = nn.Parameter(
+            self.scale * torch.rand(self.in_channels, self.out_channels, self.shapes, self.shapes, dtype=torch.cfloat))
+        self.w0 = nn.Conv2d(self.in_channels, self.out_channels, 1)
+
+        init_rate_half(self.rate1)
+        init_rate_half(self.rate2)
+
+    def compl_mul2d(self, input, weights):
+        return torch.einsum("bixy,ioxy->boxy", input, weights)
+
+    def forward(self, x):
+        if isinstance(x, tuple):
+            x, cuton = x
+        else:
+            cuton = 0.1
+        batchsize = x.shape[0]
+        x_ft = torch.fft.fft2(x, norm="ortho")
+        #  print(x_ft.shape)
+        out_ft = self.compl_mul2d(x_ft, self.weights1)
+        batch_fftshift = batch_fftshift2d(out_ft)
+
+        # do the filter in here
+        h, w = batch_fftshift.shape[2:4]  # height and width
+        cy, cx = int(h / 2), int(w / 2)  # centerness
+        rh, rw = int(cuton * cy), int(cuton * cx)  # filter_size
+        # the value of center pixel is zero.
+        batch_fftshift[:, :, cy - rh:cy + rh, cx - rw:cx + rw, :] = 0
+        # test with batch shift
+        out_ft = batch_ifftshift2d(batch_fftshift)
+        out_ft = torch.view_as_complex(out_ft)
+        # Return to physical space
+        out = torch.fft.ifft2(out_ft, s=(x.size(-2), x.size(-1)), norm="ortho").real
+        out2 = self.w0(x)
+        return self.rate1 * out + self.rate2 * out2
+
+def init_rate_half(tensor):
+    if tensor is not None:
+        tensor.data.fill_(0.5)
+
+def init_rate_0(tensor):
+    if tensor is not None:
+        tensor.data.fill_(0.)
+
+def batch_fftshift2d(x):
+    real, imag = x.real, x.imag
+    for dim in range(1, len(real.size())):
+        n_shift = real.size(dim) // 2
+        if real.size(dim) % 2 != 0:
+            n_shift += 1  # for odd-sized images
+        real = roll_n(real, axis=dim, n=n_shift)
+        imag = roll_n(imag, axis=dim, n=n_shift)
+
+    return torch.stack((real, imag), -1)  # last dim=2 (real&imag)
+
+def batch_ifftshift2d(x):
+    real, imag = torch.unbind(x, -1)
+    for dim in range(len(real.size()) - 1, 0, -1):
+        real = roll_n(real, axis=dim, n=real.size(dim) // 2)
+        imag = roll_n(imag, axis=dim, n=imag.size(dim) // 2)
+
+    return torch.stack((real, imag), -1)  # last dim=2 (real&imag)
+
+def roll_n(X, axis, n):
+    f_idx = tuple(slice(None, None, None)
+                  if i != axis else slice(0, n, None)
+                  for i in range(X.dim()))
+    b_idx = tuple(slice(None, None, None)
+                  if i != axis else slice(n, None, None)
+                  for i in range(X.dim()))
+    front = X[f_idx]
+    back = X[b_idx]
+    return torch.cat([back, front], axis)
+
+
+class ChannelNorm(nn.Module):
+    def __init__(self):
+        super(ChannelNorm, self).__init__()
+
+    def forward(self, featmap):
+        n, c, h, w = featmap.shape
+        featmap = featmap.reshape((n, c, -1))
+        featmap = featmap.softmax(dim=-1)
+        return featmap
+
+
+class CWD(nn.Module):
+    def __init__(self, norm_type='channel', divergence='kl', temperature=4.0):
+        super(CWD, self).__init__()
+
+        # define normalize function
+        if norm_type == 'channel':
+            self.normalize = ChannelNorm()
+        elif norm_type == 'spatial':
+            self.normalize = nn.Softmax(dim=1)
+        elif norm_type == 'channel_mean':
+            self.normalize = lambda x: x.view(x.size(0), x.size(1), -1).mean(-1)
+        else:
+            self.normalize = None
+        self.norm_type = norm_type
+
+        self.temperature = 1.0
+
+        # define loss function
+        if divergence == 'mse':
+            self.criterion = nn.MSELoss(reduction='sum')
+        elif divergence == 'kl':
+            self.criterion = nn.KLDivLoss(reduction='sum')
+            self.temperature = temperature
+        self.divergence = divergence
+
+    def forward(self, preds_S, preds_T):
+        n, c, h, w = preds_S.shape
+        # import pdb;pdb.set_trace()
+        if self.normalize is not None:
+            norm_s = self.normalize(preds_S / self.temperature)
+            norm_t = self.normalize(preds_T.detach() / self.temperature)
+        else:
+            norm_s = preds_S[0]
+            norm_t = preds_T[0].detach()
+
+        if self.divergence == 'kl':
+            norm_s = norm_s.log()
+        loss = self.criterion(norm_s, norm_t)
+
+        # item_loss = [round(self.criterion(norm_t[0][0].log(),norm_t[0][i]).item(),4) for i in range(c)]
+        # import pdb;pdb.set_trace()
+        if self.norm_type == 'channel' or self.norm_type == 'channel_mean':
+            loss /= n * c
+            # loss /= n * h * w
+        else:
+            loss /= n * h * w
+
+        return loss * (self.temperature ** 2)
+
+
+class SP(nn.Module):
+    def __init__(self):
+        super(SP, self).__init__()
+
+    def forward(self, fm_s, fm_t):
+        fm_s = fm_s.view(fm_s.size(0), -1)
+        G_s  = torch.mm(fm_s, fm_s.t())
+        norm_G_s = F.normalize(G_s, p=2, dim=1)
+
+        fm_t = fm_t.view(fm_t.size(0), -1)
+        G_t  = torch.mm(fm_t, fm_t.t())
+        norm_G_t = F.normalize(G_t, p=2, dim=1)
+
+        loss = F.mse_loss(norm_G_s, norm_G_t)
+
+        return loss
+
+
+class SRD(nn.Module):
+    """
+    Args:
+        s_dim: the dimension of student's feature
+        t_dim: the dimension of teacher's feature
+    """
+    def __init__(self, s_dim, t_dim):
+        super(SRD, self).__init__()
+        self.s_dim = s_dim
+        self.t_dim = t_dim
+        # self.alpha = alpha
+
+        self.embed = nn.Linear(s_dim, t_dim)
+        self.bn_s = torch.nn.BatchNorm1d(t_dim, eps=0.0, affine=False)
+        self.bn_t = torch.nn.BatchNorm1d(t_dim, eps=0.0, affine=False)
+
+    # def forward_simple(self, z_s, z_t):
+    #     f_s = z_s
+    #     f_t = z_t
+    #
+    #     # must reshape the transformer repr
+    #     b = f_s.shape[0]
+    #     f_s = f_s.transpose(1, 2).view(b, -1, 14, 14)
+    #     f_s = self.embed(f_s)
+    #
+    #     f_s = F.normalize(f_s, dim=1)
+    #     f_t = F.normalize(f_t, dim=1)
+    #
+    #     return F.mse_loss(f_s, f_t)
+
+    def forward(self, z_s, z_t):
+        b, c, h, w = z_s.shape
+        b1, c1, h1, w1 = z_t.shape
+        z_s = z_s.view(b, c, -1).mean(2)
+        z_t = z_t.view(b1, c1, -1).mean(2)
+
+        f_s = z_s
+        f_t = z_t
+
+        f_s = self.embed(f_s)
+        n, d = f_s.shape
+
+        f_s_norm = self.bn_s(f_s)
+        f_t_norm = self.bn_t(f_t)
+
+        c_st = torch.einsum('bx,bx->x', f_s_norm, f_t_norm) / n
+        c_diff = c_st - torch.ones_like(c_st)
+
+        c_diff = torch.abs(c_diff)
+        c_diff = c_diff.pow(4.0)
+        eps = 1e-5
+        loss = torch.log(c_diff.sum() + eps)
+        return loss
+
+
+class MLP_Module(nn.Module):
+    def __init__(self, in_channels, out_channels, pooling=True):
+        super(MLP_Module, self).__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.pooling = pooling
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(self.in_channels, self.out_channels, kernel_size=1),
+            nn.ReLU(),
+            nn.Conv2d(self.out_channels, self.out_channels, kernel_size=1)
+        )
+
+        if self.pooling:
+            self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        else:
+            self.pool = nn.Identity()  # No pooling when pooling=False
+
+    def forward(self, x):
+        output = self.conv(x)
+        output = self.pool(output)  # Apply pooling only if pooling=True
+
+        return output
+
 
 class Sobel_loss(nn.Module):
     def __init__(self):
@@ -480,71 +543,71 @@ class Sobel_loss(nn.Module):
 
         return F.l1_loss(sobel_pred, sobel_gt)
 
-class Phase_AFA_Module(nn.Module):
-    def __init__(self, in_channels, out_channels, shapes):
-        super(Phase_AFA_Module, self).__init__()
-
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.shapes = shapes
-
-        # self.low_attention_weight = torch.nn.Parameter(torch.randn(self.out_channels, self.out_channels, 1, 1))
-        # self.high_attention_weight = torch.nn.Parameter(torch.randn(self.out_channels, self.out_channels, 1, 1))
-
-        self.low_conv = nn.Conv2d(self.out_channels, self.out_channels, kernel_size=1, groups=self.out_channels)
-        self.high_conv = nn.Conv2d(self.out_channels, self.out_channels, kernel_size=1, groups=self.out_channels)
-
-        self.conv1 = nn.Conv2d(self.in_channels, self.out_channels, 1)
-        self.relu = nn.ReLU()
-        self.conv2 = nn.Conv2d(self.out_channels, self.out_channels, 1)
-
-    def forward(self, student_feature, teacher_phase):
-        cuton = 0.1
-
-        student_feature_1 = self.conv1(student_feature)
-        student_feature_relu = self.relu(student_feature_1)
-        student_feature_out = self.conv2(student_feature_relu)
-
-        x_ft = torch.fft.fft2(student_feature_out, norm="ortho")  # B, C, H, W
-        x_shift = torch.fft.fftshift(x_ft)  # B, C, H, W
-
-        magnitude = torch.abs(x_shift)  # 크기 값 계산
-        # phase = torch.angle(x_shift)  # 위상 값 계산
-
-        h, w = x_shift.shape[2:4]
-        cy, cx = int(h / 2), int(w / 2)
-        rh, rw = int(cuton * cy), int(cuton * cx)
-
-        # 전체를 먼저 0으로 초기화
-        low_pass = torch.zeros_like(magnitude)  # B, C, H, W
-        low_pass[:, :, cy - rh:cy + rh, cx - rw:cx + rw] = magnitude[:, :, cy - rh:cy + rh, cx - rw:cx + rw]
-
-        high_pass = magnitude - low_pass
-
-        # low_attn_map = F.conv2d(low_pass, self.low_attention_weight, padding=0)  # (B, C, H, W)에 (C, C, 1, 1)의 weight 로 conv 적용 (1x1 conv)
-        # high_attn_map = F.conv2d(high_pass, self.high_attention_weight, padding=0)
-
-        low_attn_map = self.low_conv(low_pass)  # channel 별 독립적인 conv
-        high_attn_map = self.high_conv(high_pass)
-
-        low_attn_map = torch.sigmoid(low_attn_map) + 0.5
-        high_attn_map = torch.sigmoid(high_attn_map) + 0.5
-
-        low_pass_att = low_attn_map * low_pass
-        high_pass_att = high_attn_map * high_pass
-
-        mag_out = low_pass_att + high_pass_att  # B, C, H, W
-
-        real = mag_out * torch.cos(teacher_phase)  # 실수부
-        imag = mag_out * torch.sin(teacher_phase)  # 허수부
-
-        fre_out = torch.complex(real, imag)
-
-        x_fft = torch.fft.ifftshift(fre_out)
-
-        out = torch.fft.ifft2(x_fft, s=(student_feature_out.size(-2), student_feature_out.size(-1)), norm="ortho").real
-
-        return out
+# class Phase_AFA_Module(nn.Module):
+#     def __init__(self, in_channels, out_channels, shapes):
+#         super(Phase_AFA_Module, self).__init__()
+#
+#         self.in_channels = in_channels
+#         self.out_channels = out_channels
+#         self.shapes = shapes
+#
+#         # self.low_attention_weight = torch.nn.Parameter(torch.randn(self.out_channels, self.out_channels, 1, 1))
+#         # self.high_attention_weight = torch.nn.Parameter(torch.randn(self.out_channels, self.out_channels, 1, 1))
+#
+#         self.low_conv = nn.Conv2d(self.out_channels, self.out_channels, kernel_size=1, groups=self.out_channels)
+#         self.high_conv = nn.Conv2d(self.out_channels, self.out_channels, kernel_size=1, groups=self.out_channels)
+#
+#         self.conv1 = nn.Conv2d(self.in_channels, self.out_channels, 1)
+#         self.relu = nn.ReLU()
+#         self.conv2 = nn.Conv2d(self.out_channels, self.out_channels, 1)
+#
+#     def forward(self, student_feature, teacher_phase):
+#         cuton = 0.1
+#
+#         student_feature_1 = self.conv1(student_feature)
+#         student_feature_relu = self.relu(student_feature_1)
+#         student_feature_out = self.conv2(student_feature_relu)
+#
+#         x_ft = torch.fft.fft2(student_feature_out, norm="ortho")  # B, C, H, W
+#         x_shift = torch.fft.fftshift(x_ft)  # B, C, H, W
+#
+#         magnitude = torch.abs(x_shift)  # 크기 값 계산
+#         # phase = torch.angle(x_shift)  # 위상 값 계산
+#
+#         h, w = x_shift.shape[2:4]
+#         cy, cx = int(h / 2), int(w / 2)
+#         rh, rw = int(cuton * cy), int(cuton * cx)
+#
+#         # 전체를 먼저 0으로 초기화
+#         low_pass = torch.zeros_like(magnitude)  # B, C, H, W
+#         low_pass[:, :, cy - rh:cy + rh, cx - rw:cx + rw] = magnitude[:, :, cy - rh:cy + rh, cx - rw:cx + rw]
+#
+#         high_pass = magnitude - low_pass
+#
+#         # low_attn_map = F.conv2d(low_pass, self.low_attention_weight, padding=0)  # (B, C, H, W)에 (C, C, 1, 1)의 weight 로 conv 적용 (1x1 conv)
+#         # high_attn_map = F.conv2d(high_pass, self.high_attention_weight, padding=0)
+#
+#         low_attn_map = self.low_conv(low_pass)  # channel 별 독립적인 conv
+#         high_attn_map = self.high_conv(high_pass)
+#
+#         low_attn_map = torch.sigmoid(low_attn_map) + 0.5
+#         high_attn_map = torch.sigmoid(high_attn_map) + 0.5
+#
+#         low_pass_att = low_attn_map * low_pass
+#         high_pass_att = high_attn_map * high_pass
+#
+#         mag_out = low_pass_att + high_pass_att  # B, C, H, W
+#
+#         real = mag_out * torch.cos(teacher_phase)  # 실수부
+#         imag = mag_out * torch.sin(teacher_phase)  # 허수부
+#
+#         fre_out = torch.complex(real, imag)
+#
+#         x_fft = torch.fft.ifftshift(fre_out)
+#
+#         out = torch.fft.ifft2(x_fft, s=(student_feature_out.size(-2), student_feature_out.size(-1)), norm="ortho").real
+#
+#         return out
 
 # class AFA_Module(nn.Module):
 #     def __init__(self, in_channels, out_channels, shapes):
@@ -674,12 +737,11 @@ class Phase_AFA_Module(nn.Module):
 #         # output = self.relu(output)
 #
 #         return output
-
-
-def init_rate_half(tensor):
-    if tensor is not None:
-        tensor.data.fill_(0.5)
-
-def init_rate_0(tensor):
-    if tensor is not None:
-        tensor.data.fill_(0.)
+#
+# def init_rate_half(tensor):
+#     if tensor is not None:
+#         tensor.data.fill_(0.5)
+#
+# def init_rate_0(tensor):
+#     if tensor is not None:
+#         tensor.data.fill_(0.)
