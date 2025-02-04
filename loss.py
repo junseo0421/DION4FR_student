@@ -437,8 +437,8 @@ class SRD(nn.Module):
         # self.alpha = alpha
 
         self.embed = nn.Linear(s_dim, t_dim)
-        self.bn_s = torch.nn.BatchNorm1d(t_dim, eps=0.0, affine=False)
-        self.bn_t = torch.nn.BatchNorm1d(t_dim, eps=0.0, affine=False)
+        self.bn_s = torch.nn.BatchNorm1d(t_dim, eps=1e-5, affine=False)
+        self.bn_t = torch.nn.BatchNorm1d(t_dim, eps=1e-5, affine=False)
 
     # def forward_simple(self, z_s, z_t):
     #     f_s = z_s
