@@ -306,7 +306,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 if __name__ == '__main__':
     # model forward 수정해야함!!!
     NAME_DATASET = 'HKdb-1'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/dq_u_net_sep4/output'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/srd_kd/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'logs_all')
