@@ -479,6 +479,22 @@ class SRD(nn.Module):
         return loss
 
 
+class Projector_1x1(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(Projector_1x1, self).__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
+        self.projector = nn.Sequential(
+            nn.Conv2d(self.in_channels, self.out_channels, kernel_size=1),
+            nn.ReLU()
+        )
+
+    def forward(self, fm):
+        modified_fm = self.projector(fm)
+        return modified_fm
+
+
 class MLP_Module(nn.Module):
     def __init__(self, in_channels, out_channels, pooling=True):
         super(MLP_Module, self).__init__()
