@@ -135,7 +135,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
 
             ### feature KD loss
             feature_kd_loss = at_loss(projector_1(f1_s), f1_t) + at_loss(projector_2(f2_s), f2_t) + at_loss(projector_3(f3_s), f3_t) + at_loss(projector_4(f4_s), f4_t)
-            feature_kd_loss_weight = 1000.0
+            feature_kd_loss_weight = 4000.0
             feature_kd_loss = feature_kd_loss * feature_kd_loss_weight
 
             # ## Update Generator
@@ -272,7 +272,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
             ### feature KD loss
             feature_kd_loss = at_loss(projector_1(f1_s), f1_t) + at_loss(projector_2(f2_s), f2_t) + at_loss(projector_3(f3_s), f3_t) + at_loss(projector_4(f4_s), f4_t)
-            feature_kd_loss_weight = 1000.0
+            feature_kd_loss_weight = 4000.0
             feature_kd_loss = feature_kd_loss * feature_kd_loss_weight
 
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
