@@ -140,8 +140,8 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
 
             ### feature KD loss
             pro_f1_s, pro_f2_s, pro_f3_s, pro_f4_s = projector_1(f1_s), projector_2(f2_s), projector_3(f3_s), projector_4(f4_s)
-            feature_kd_loss = mse(pro_f1_s, f1_t) + mse(pro_f2_s, f2_t) + mse(pro_f3_s, f3_t) + mse(pro_f4_s, f4_t)
-            feature_kd_loss_weight = 1.0
+            feature_kd_loss = mse(pro_f4_s, f4_t)
+            feature_kd_loss_weight = 4.0
             feature_kd_loss = feature_kd_loss * feature_kd_loss_weight
 
             ### AFA Regularization Loss
@@ -292,8 +292,8 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
             ### feature KD loss
             pro_f1_s, pro_f2_s, pro_f3_s, pro_f4_s = projector_1(f1_s), projector_2(f2_s), projector_3(f3_s), projector_4(f4_s)
-            feature_kd_loss = mse(pro_f1_s, f1_t) + mse(pro_f2_s, f2_t) + mse(pro_f3_s, f3_t) + mse(pro_f4_s, f4_t)
-            feature_kd_loss_weight = 1.0
+            feature_kd_loss = mse(pro_f4_s, f4_t)
+            feature_kd_loss_weight = 4.0
             feature_kd_loss = feature_kd_loss * feature_kd_loss_weight
 
             ### AFA Regularization Loss
