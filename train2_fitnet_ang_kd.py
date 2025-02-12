@@ -73,6 +73,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
     mrf = IDMRFLoss(device=0)  # 텍스처 일관성 평가
     ssim_loss = SSIM_loss().cuda(0)  # 구조적 유사성
     sobel_loss = Sobel_loss().cuda(0)
+    ang_loss = AngularDistance().cuda(0)
 
     acc_pixel_rec_loss = 0
     acc_mrf_loss = 0
@@ -83,7 +84,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
 
     acc_original_kd_loss = 0  # 24.10.14 original KD loss
     acc_feature_kd_loss = 0
-    acc_afa_reg_loss = 0
+    acc_afa_loss = 0
 
     total_gen_loss = 0
 
@@ -140,21 +141,21 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
 
             ### feature KD loss
             pro_f1_s, pro_f2_s, pro_f3_s, pro_f4_s = projector_1(f1_s), projector_2(f2_s), projector_3(f3_s), projector_4(f4_s)
-            feature_kd_loss = mse(pro_f4_s, f4_t)
-            feature_kd_loss_weight = 4.0
+            feature_kd_loss = mse(pro_f1_s, f1_t) + mse(pro_f2_s, f2_t) + mse(pro_f3_s, f3_t) + mse(pro_f4_s, f4_t)
+            feature_kd_loss_weight = 1.0
             feature_kd_loss = feature_kd_loss * feature_kd_loss_weight
 
-            ### AFA Regularization Loss
+            ### AFA Loss
             pro_f1_s_afa, pro_f2_s_afa, pro_f3_s_afa = projector_1_afa(f1_s_afa), projector_2_afa(f2_s_afa), projector_3_afa(f3_s_afa)
-            afa_reg_loss = mse((pro_f1_s_afa - pro_f1_s), (f1_t - pro_f1_s)) + mse((pro_f2_s_afa - pro_f2_s), (f2_t - pro_f2_s)) + mse((pro_f3_s_afa - pro_f3_s), (f3_t - pro_f3_s))
-            afa_reg_loss_weight = 1.0
-            afa_reg_loss = afa_reg_loss * afa_reg_loss_weight
+            afa_loss = ang_loss(pro_f1_s_afa, f1_t) + ang_loss(pro_f2_s_afa, f2_t) + ang_loss(pro_f3_s_afa, f3_t)
+            afa_loss_weight = 1.0
+            afa_loss = afa_loss * afa_loss_weight
 
             # ## Update Generator
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
 
             # 24.10.14 original kd loss
-            gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss + original_kd_loss + feature_kd_loss + afa_reg_loss
+            gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss + original_kd_loss + feature_kd_loss + afa_loss
 
             opt_gen.zero_grad()
             gen_loss.backward()
@@ -169,7 +170,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
 
             acc_original_kd_loss += original_kd_loss.data  # 24.10.14 Original kd Loss
             acc_feature_kd_loss += feature_kd_loss.data
-            acc_afa_reg_loss += afa_reg_loss.data
+            acc_afa_loss += afa_loss.data
 
             total_gen_loss += gen_loss.data
 
@@ -179,7 +180,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
                               'dis_loss': dis_loss.item(),
                               'sobel_loss': total_sobel_loss.item(),
                               'feature_kd_loss': feature_kd_loss.item(),
-                              'afa_reg_loss': afa_reg_loss.item()})
+                              'afa_loss': afa_loss.item()})
 
     ## Tensor board
     writer.add_scalars('train/generator_loss',
@@ -192,9 +193,9 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
                        epoch)
     writer.add_scalars('train/generator_loss', {'Original KD Loss': acc_original_kd_loss / len(train_loader.dataset)},
                        epoch)  # 24.10.14 Original kd Loss
-    writer.add_scalars('train/feature_kd_loss', {'Feature KD Loss': acc_afa_reg_loss / len(train_loader.dataset)},
+    writer.add_scalars('train/feature_kd_loss', {'Feature KD Loss': acc_feature_kd_loss / len(train_loader.dataset)},
                        epoch)  # 24.10.14 Feature kd Loss
-    writer.add_scalars('train/feature_kd_loss', {'AFA Reg Loss': acc_feature_kd_loss / len(train_loader.dataset)},
+    writer.add_scalars('train/feature_kd_loss', {'AFA Loss': acc_afa_loss / len(train_loader.dataset)},
                        epoch)
     writer.add_scalars('train/SSIM_loss', {'total gen Loss': acc_ssim_loss / len(train_loader.dataset)},
                        epoch)
@@ -223,6 +224,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
     mrf = IDMRFLoss(device=0)
     ssim_loss = SSIM_loss().cuda(0)
     sobel_loss = Sobel_loss().cuda(0)
+    ang_loss = AngularDistance().cuda(0)
 
     acc_pixel_rec_loss = 0
     acc_mrf_loss = 0
@@ -233,7 +235,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
     acc_original_kd_loss = 0  # 24.10.14 original KD loss
     acc_feature_kd_loss = 0
-    acc_afa_reg_loss = 0
+    acc_afa_loss = 0
 
     total_gen_loss = 0
 
@@ -292,20 +294,20 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
             ### feature KD loss
             pro_f1_s, pro_f2_s, pro_f3_s, pro_f4_s = projector_1(f1_s), projector_2(f2_s), projector_3(f3_s), projector_4(f4_s)
-            feature_kd_loss = mse(pro_f4_s, f4_t)
-            feature_kd_loss_weight = 4.0
+            feature_kd_loss = mse(pro_f1_s, f1_t) + mse(pro_f2_s, f2_t) + mse(pro_f3_s, f3_t) + mse(pro_f4_s, f4_t)
+            feature_kd_loss_weight = 1.0
             feature_kd_loss = feature_kd_loss * feature_kd_loss_weight
 
-            ### AFA Regularization Loss
+            ### AFA Loss
             pro_f1_s_afa, pro_f2_s_afa, pro_f3_s_afa = projector_1_afa(f1_s_afa), projector_2_afa(f2_s_afa), projector_3_afa(f3_s_afa)
-            afa_reg_loss = mse((pro_f1_s_afa - pro_f1_s), (f1_t - pro_f1_s)) + mse((pro_f2_s_afa - pro_f2_s), (f2_t - pro_f2_s)) + mse((pro_f3_s_afa - pro_f3_s), (f3_t - pro_f3_s))
-            afa_reg_loss_weight = 1.0
-            afa_reg_loss = afa_reg_loss * afa_reg_loss_weight
+            afa_loss = ang_loss(pro_f1_s_afa, f1_t) + ang_loss(pro_f2_s_afa, f2_t) + ang_loss(pro_f3_s_afa, f3_t)
+            afa_loss_weight = 1.0
+            afa_loss = afa_loss * afa_loss_weight
 
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
 
             # 24.10.14 original kd loss
-            gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss + original_kd_loss + feature_kd_loss + afa_reg_loss
+            gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss + original_kd_loss + feature_kd_loss + afa_loss
 
             opt_gen.zero_grad()
 
@@ -318,7 +320,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
             acc_original_kd_loss += original_kd_loss.data
             acc_feature_kd_loss += feature_kd_loss.data
-            acc_afa_reg_loss += afa_reg_loss.data
+            acc_afa_loss += afa_loss.data
 
             total_gen_loss += gen_loss.data
 
@@ -328,7 +330,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                               'dis_loss': dis_adv_loss.item(),
                               'sobel_loss': total_sobel_loss.item(),
                               'feature_kd_loss': feature_kd_loss.item(),
-                              'afa_reg_loss': afa_reg_loss.item()})
+                              'afa_loss': afa_loss.item()})
 
     ## Tensor board
     writer.add_scalars('valid/generator_loss',
@@ -343,7 +345,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                        epoch)  # 24.10.14 Original kd Loss
     writer.add_scalars('valid/feature_kd_loss', {'Feature KD Loss': acc_feature_kd_loss / len(valid_loader.dataset)},
                        epoch)  # 24.12.09 Feature kd Loss
-    writer.add_scalars('valid/feature_kd_loss', {'AFA Reg Loss': acc_afa_reg_loss / len(valid_loader.dataset)},
+    writer.add_scalars('valid/feature_kd_loss', {'AFA Loss': acc_afa_loss / len(valid_loader.dataset)},
                        epoch)
     writer.add_scalars('valid/SSIM_loss', {'total gen Loss': acc_ssim_loss / len(valid_loader.dataset)},
                        epoch)
@@ -353,8 +355,9 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'HKdb-1'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/fitnet_afa_kd_2/output'
+    # model forward 수정해야함!!!
+    NAME_DATASET = 'HKdb-2'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/fitnet_ang_kd_2/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'logs_all')

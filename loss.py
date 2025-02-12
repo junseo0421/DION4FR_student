@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
+import numpy as np
 
 class SSIM_loss(nn.Module):
     """Layer to compute the SSIM loss between a pair of images
@@ -86,6 +87,42 @@ class OFD(nn.Module):
     def forward(self, fm_s, fm_t):
         margin = self.get_margin(fm_t)
         fm_t = torch.max(fm_t, margin)
+
+        mask = 1.0 - ((fm_s <= fm_t) & (fm_t <= 0.0)).float()
+        loss = torch.mean((fm_s - fm_t)**2 * mask)
+
+        return loss
+
+    def get_margin(self, fm, eps=1e-6):
+        mask = (fm < 0.0).float()
+        masked_fm = fm * mask
+
+        margin = masked_fm.sum(dim=(0, 2, 3), keepdim=True) / (mask.sum(dim=(0, 2, 3), keepdim=True)+eps)
+
+        return margin
+
+
+class OFD_CON(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(OFD_CON, self).__init__()
+        self.connector = nn.Sequential(*[
+            nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(out_channels)
+        ])
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+    def forward(self, fm_s, fm_t):
+        margin = self.get_margin(fm_t)
+        fm_t = torch.max(fm_t, margin)
+        fm_s = self.connector(fm_s)
 
         mask = 1.0 - ((fm_s <= fm_t) & (fm_t <= 0.0)).float()
         loss = torch.mean((fm_s - fm_t)**2 * mask)
@@ -493,6 +530,90 @@ class Projector_1x1(nn.Module):
     def forward(self, fm):
         modified_fm = self.projector(fm)
         return modified_fm
+
+
+class VID(nn.Module):
+    def __init__(self, in_channels, mid_channels, out_channels, init_var=5.0, eps=1e-6):
+        super(VID, self).__init__()
+        self.eps = eps
+        self.regressor = nn.Sequential(*[
+            nn.Conv2d(in_channels, mid_channels, kernel_size=1, stride=1, padding=0, bias=False),
+            # nn.BatchNorm2d(mid_channels),
+            nn.ReLU(),
+            nn.Conv2d(mid_channels, mid_channels, kernel_size=1, stride=1, padding=0, bias=False),
+            # nn.BatchNorm2d(mid_channels),
+            nn.ReLU(),
+            nn.Conv2d(mid_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False),
+        ])
+
+        self.alpha = nn.Parameter(
+            np.log(np.exp(init_var-eps)-1.0) * torch.ones(out_channels)
+        )
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            # elif isinstance(m, nn.BatchNorm2d):
+                # 	nn.init.constant_(m.weight, 1)
+                # 	nn.init.constant_(m.bias, 0)
+
+    def forward(self, fm_s, fm_t):
+        pred_mean = self.regressor(fm_s)
+        pred_var = torch.log(1.0 + torch.exp(self.alpha)) + self.eps
+        pred_var = pred_var.view(1, -1, 1, 1)
+        neg_log_prob = 0.5 * (torch.log(pred_var) + (pred_mean-fm_t)**2 / pred_var)
+        loss = torch.mean(neg_log_prob)
+
+        return loss
+
+
+class CosineSimilarity(nn.Module):
+    def __init__(self, reduction='mean'):
+        super(CosineSimilarity, self).__init__()
+        self.reduction = reduction
+
+    def forward(self, student_afa_feature, teacher_feature):
+        teacher_magnitude = torch.abs(torch.fft.fft2(teacher_feature))
+        student_magnitude = torch.abs(torch.fft.fft2(student_afa_feature))
+
+        student_magnitude = student_magnitude.view(student_magnitude.shape[0], student_magnitude.shape[1], -1)
+        teacher_magnitude = teacher_magnitude.view(teacher_magnitude.shape[0], teacher_magnitude.shape[1], -1)
+
+        cos_sim = F.cosine_similarity(student_magnitude, teacher_magnitude, dim=-1)  # (B, C)
+
+        loss = 1 - cos_sim  # Cosine이 1이면 Loss=0
+
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        else:
+            raise ValueError("Invalid reduction mode. Choose between 'mean' and 'sum'.")
+
+
+class AngularDistance(nn.Module):
+    def __init__(self, reduction='mean'):
+        super(AngularDistance, self).__init__()
+        self.reduction = reduction
+
+    def forward(self, student_afa_feature, teacher_feature):
+        teacher_magnitude = torch.abs(torch.fft.fft2(teacher_feature))
+        student_magnitude = torch.abs(torch.fft.fft2(student_afa_feature))
+
+        student_magnitude = student_magnitude.view(student_magnitude.shape[0], student_magnitude.shape[1], -1)
+        teacher_magnitude = teacher_magnitude.view(teacher_magnitude.shape[0], teacher_magnitude.shape[1], -1)
+
+        cos_sim = F.cosine_similarity(student_magnitude, teacher_magnitude, dim=-1)  # (B, C)
+        angular_distance = torch.acos(torch.clamp(cos_sim, -1 + 1e-7, 1 - 1e-7)) / torch.pi  # 정규화 (0~1)
+
+        if self.reduction == 'mean':
+            return angular_distance.mean()
+        elif self.reduction == 'sum':
+            return angular_distance.sum()
+        else:
+            raise ValueError("Invalid reduction mode. Choose between 'mean' and 'sum'.")
 
 
 class MLP_Module(nn.Module):
