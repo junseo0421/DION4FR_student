@@ -148,7 +148,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
             ### AFA Loss
             pro_f1_s_afa, pro_f2_s_afa, pro_f3_s_afa = projector_1_afa(f1_s_afa), projector_2_afa(f2_s_afa), projector_3_afa(f3_s_afa)
             afa_loss = ang_loss(pro_f1_s_afa, f1_t) + ang_loss(pro_f2_s_afa, f2_t) + ang_loss(pro_f3_s_afa, f3_t)
-            afa_loss_weight = 1.0
+            afa_loss_weight = 0.1
             afa_loss = afa_loss * afa_loss_weight
 
             # ## Update Generator
@@ -301,7 +301,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             ### AFA Loss
             pro_f1_s_afa, pro_f2_s_afa, pro_f3_s_afa = projector_1_afa(f1_s_afa), projector_2_afa(f2_s_afa), projector_3_afa(f3_s_afa)
             afa_loss = ang_loss(pro_f1_s_afa, f1_t) + ang_loss(pro_f2_s_afa, f2_t) + ang_loss(pro_f3_s_afa, f3_t)
-            afa_loss_weight = 1.0
+            afa_loss_weight = 0.1
             afa_loss = afa_loss * afa_loss_weight
 
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
@@ -357,7 +357,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 if __name__ == '__main__':
     # model forward 수정해야함!!!
     NAME_DATASET = 'HKdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/fitnet_ang_kd_2/output'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/fitnet_ang_kd_2_0.1/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'logs_all')
