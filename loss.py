@@ -6,7 +6,7 @@ import torchvision.transforms.functional as TF
 import numpy as np
 import math
 
-from pytorch_wavelets import DWTForward, DWTInverse
+# from pytorch_wavelets import DWTForward, DWTInverse
 
 class SSIM_loss(nn.Module):
     """Layer to compute the SSIM loss between a pair of images
@@ -619,18 +619,18 @@ class AngularDistance(nn.Module):
             raise ValueError("Invalid reduction mode. Choose between 'mean' and 'sum'.")
 
 
-class WKD(nn.Module):
-    def __init__(self, wkd_level=3, wkd_basis='haar'):
-        super(WKD, self).__init__()
-        self.xfm = DWTForward(J=wkd_level, wave=wkd_basis, mode='zero')
+# class WKD(nn.Module):
+#     def __init__(self, wkd_level=3, wkd_basis='haar'):
+#         super(WKD, self).__init__()
+#         self.xfm = DWTForward(J=wkd_level, wave=wkd_basis, mode='zero')
 
-    def forward(self, student, teacher):
-        student_l, student_h = self.xfm(student)
-        teacher_l, teacher_h = self.xfm(teacher)
-        loss = 0.0
-        for index in range(len(student_h)):
-            loss += torch.nn.functional.l1_loss(teacher_h[index], student_h[index])
-        return loss
+#     def forward(self, student, teacher):
+#         student_l, student_h = self.xfm(student)
+#         teacher_l, teacher_h = self.xfm(teacher)
+#         loss = 0.0
+#         for index in range(len(student_h)):
+#             loss += torch.nn.functional.l1_loss(teacher_h[index], student_h[index])
+#         return loss
 
 
 class DCD(nn.Module):
