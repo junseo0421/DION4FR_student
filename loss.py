@@ -712,9 +712,9 @@ class RRD(nn.Module):
         opt.nce_t_t: the temperature (default: 0.1)
     """
 
-    def __init__(self, s_dim, t_dim, feat_dim=128, nce_k=4096, nce_t_s=0.1, nce_t_t=0.02):
+    def __init__(self, s_dim, t_dim, feat_dim=128, nce_k=512, nce_t_s=0.02, nce_t_t=0.1):
         super(RRD, self).__init__()
-        self.nce_k = nce_k      # batch_size * 512
+        self.nce_k = nce_k
         self.nce_t_s = nce_t_s
         self.nce_t_t = nce_t_t
 
@@ -731,9 +731,8 @@ class RRD(nn.Module):
         """
         # forward
         b, c, h, w = f_s.shape
-        b1, c1, h1, w1 = f_t.shape
-        f_s = f_s.view(b, c, -1).mean(2)
-        f_t = f_t.view(b1, c1, -1).mean(2)
+        f_s = nn.functional.adaptive_avg_pool2d(f_s, (1, 1)).view(b, -1)
+        f_t = nn.functional.adaptive_avg_pool2d(f_t, (1, 1)).view(b, -1)
 
         f_s = self.embed_s(f_s)
         f_t = self.embed_t(f_t)
