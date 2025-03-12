@@ -215,8 +215,13 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen, 
                        epoch)  # 24.10.14 Original kd Loss
     writer.add_scalars('train/feature_kd_loss', {'Feature KD Loss': acc_feature_kd_loss / len(train_loader.dataset)},
                        epoch)  # 24.10.14 Feature kd Loss
-    writer.add_scalars('train/feature_kd_loss', {'AFA KD Loss': acc_afa_kd_loss / len(train_loader.dataset)},
-                       epoch)
+    
+    if is_afa_loss:
+        writer.add_scalars('train/feature_kd_loss', {'AFA KD Loss': acc_afa_kd_loss / len(train_loader.dataset)},
+                           epoch)
+    else:
+        pass
+    
     writer.add_scalars('train/SSIM_loss', {'total gen Loss': acc_ssim_loss / len(train_loader.dataset)},
                        epoch)
     writer.add_scalars('train/total_gen_loss', {'total gen Loss': total_gen_loss / len(train_loader.dataset)},
@@ -385,8 +390,13 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen, 
                        epoch)  # 24.10.14 Original kd Loss
     writer.add_scalars('valid/feature_kd_loss', {'Feature KD Loss': acc_feature_kd_loss / len(valid_loader.dataset)},
                        epoch)  # 24.12.09 Feature kd Loss
-    writer.add_scalars('valid/feature_kd_loss', {'AFA KD Loss': acc_afa_kd_loss / len(valid_loader.dataset)},
-                       epoch)  # 24.12.09 Feature kd Loss
+    
+    if is_afa_loss:
+        writer.add_scalars('valid/feature_kd_loss', {'AFA KD Loss': acc_afa_kd_loss / len(valid_loader.dataset)},
+                           epoch)  # 24.12.09 Feature kd Loss
+    else:
+        pass
+
     writer.add_scalars('valid/SSIM_loss', {'total gen Loss': acc_ssim_loss / len(valid_loader.dataset)},
                        epoch)
     writer.add_scalars('valid/total_gen_loss', {'total gen Loss': total_gen_loss / len(valid_loader.dataset)},
