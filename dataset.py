@@ -144,6 +144,54 @@ class dataset_norm(Dataset):
         return self.size
 
 
+class dataset_norm_ablation(Dataset):
+    # prepare data for self-reconstruction,
+    # where the two input photos and the intermediate region are obtained from the same image
+
+    def __init__(self, root='', transforms=None, imgSize=192, inputsize=128, imglist1=[]):  # 24.09.20 수정
+        # --PARAMS--
+        # root: the path of the data
+        # crop: 'rand' or 'center' or 'none', which way to crop the image into target size
+        # imgSize: the size of the returned image if crop is not 'none'
+
+        #self.img_list = []
+        self.transforms = transforms
+        self.imgSize = imgSize
+        self.inputsize = inputsize
+
+        self.img_list1 = imglist1
+
+        # for name in file_list:
+        #     img = Image.open(name)
+        #     if (img.size[0] >= (self.imgSize)) and (img.size[1] >= self.imgSize):
+        #         self.img_list += [name]
+
+        self.size = len(self.img_list1)
+
+    def __getitem__(self, index):
+        # --RETURN--
+        # input1(left), input2(right), groundtruth of the intermediate region
+        index = index % self.size
+
+        # 각 경로에서 이미지를 그레이스케일로 로드
+        img = Image.open(self.img_list1[index]).convert("RGB")  # GT
+
+        # 변환 적용
+        if self.transforms:
+            img = self.transforms(img)
+
+        i = (self.imgSize - self.inputsize)//2  # (192 - 128) / 2 = 32
+
+        ## 2023 11 14 홍진성 마스킹 수정 (너비 방향으로만 처리)
+        iner_img = img[:, :, i:i+self.inputsize]
+        mask_img = np.ones((3, self.imgSize, self.imgSize))
+        mask_img[:, :, i:i + self.inputsize] = iner_img
+
+        return img, mask_img
+
+    def __len__(self):
+        return self.size
+
 
 ## 2023 11 14 홍진성 사용
 class dataset_test4(Dataset):
