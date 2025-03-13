@@ -221,7 +221,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen, 
                            epoch)
     else:
         pass
-    
+
     writer.add_scalars('train/SSIM_loss', {'total gen Loss': acc_ssim_loss / len(train_loader.dataset)},
                        epoch)
     writer.add_scalars('train/total_gen_loss', {'total gen Loss': total_gen_loss / len(train_loader.dataset)},
@@ -407,9 +407,9 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen, 
 if __name__ == '__main__':
     # ablation은 SDdb 만 !!!!!!!
     NAME_DATASET = 'SDdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/ab_yes_input_change/output'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/ab_hp_only/output'
 
-    is_afa_hp = False
+    is_afa_hp = True
     is_afa_lp = False
     is_afa_both = False
     is_input_change = True
