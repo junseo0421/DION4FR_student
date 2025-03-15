@@ -377,7 +377,7 @@ if __name__ == '__main__':
     else:
         raise Exception("에러 메시지 : 잘못된 NAME_DATASET이 입력되었습니다.")
 
-    LOAD_TEACHER_WEIGHT_DIR = join(r'/content/drive/MyDrive/q_net_sep4_sobel_afa_best', NAME_DATASET, f'Gen_former_{best_epoch}.pt')
+    LOAD_TEACHER_WEIGHT_DIR = join(r'/content/drive/MyDrive/q_u_net_sep4_sobel_afa_best', NAME_DATASET, f'Gen_former_{best_epoch}.pt')
     TRAIN_DATA_DIR = ''
 
     seed_everything(2024)  # Seed 고정
