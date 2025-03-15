@@ -495,10 +495,10 @@ if __name__ == '__main__':
         list(gen.parameters()) +
         list(projector_1_afa.parameters()) +
         list(projector_2_afa.parameters()) +
-        list(projector_3_afa.parameters()), lr=args.lr / 2, betas=(0, 0.9), weight_decay=1e-4
+        list(projector_3_afa.parameters()), lr=args.lr / 2, betas=(0.0, 0.9), weight_decay=1e-4
     )
 
-    opt_dis = optim.Adam(dis.parameters(), lr=args.lr * 2, betas=(0, 0.9), weight_decay=1e-4)
+    opt_dis = optim.Adam(dis.parameters(), lr=args.lr * 2, betas=(0.0, 0.9), weight_decay=1e-4)
 
     # Load pre-trained weight
     if args.load_pretrain:
