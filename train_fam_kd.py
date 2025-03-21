@@ -487,10 +487,10 @@ if __name__ == '__main__':
 
     opt_gen = optim.Adam(
         list(gen.parameters()) +
-        list(fam_loss.parameters()), lr=args.lr / 2, betas=(0, 0.9), weight_decay=1e-4
+        list(fam_loss.parameters()), lr=args.lr / 2, betas=(0.0, 0.9), weight_decay=1e-4
     )
 
-    opt_dis = optim.Adam(dis.parameters(), lr=args.lr * 2, betas=(0, 0.9), weight_decay=1e-4)
+    opt_dis = optim.Adam(dis.parameters(), lr=args.lr * 2, betas=(0.0, 0.9), weight_decay=1e-4)
 
     # Load pre-trained weight
     if args.load_pretrain:
