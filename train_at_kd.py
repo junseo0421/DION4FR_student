@@ -130,6 +130,8 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
 
             ### feature KD loss
             feature_kd_loss = at_loss(f1_s, f1_t) + at_loss(f2_s, f2_t) + at_loss(f3_s, f3_t) + at_loss(f4_s, f4_t)
+            feature_kd_loss_weight = 1000.0
+            feature_kd_loss = feature_kd_loss * feature_kd_loss_weight
 
             # ## Update Generator
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
@@ -260,6 +262,8 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
             ### feature KD loss
             feature_kd_loss = at_loss(f1_s, f1_t) + at_loss(f2_s, f2_t) + at_loss(f3_s, f3_t) + at_loss(f4_s, f4_t)
+            feature_kd_loss_weight = 1000.0
+            feature_kd_loss = feature_kd_loss * feature_kd_loss_weight
 
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
 
