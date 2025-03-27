@@ -48,6 +48,8 @@ def count_parameters(model):
 
 # Swin-Transformer와 TSP module (LSTM_small2) 파라미터 수를 출력하는 함수
 def print_model_parameters(gen):
+    print("generator : ", gen.__class__.__name__)
+
     print("Calculating total model parameters...")
 
     # 전체 모델 파라미터 수
@@ -55,7 +57,7 @@ def print_model_parameters(gen):
     print(f"Total parameters in the Student model: {total_params}")
 
 # Training
-def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen, is_afa_loss, is_sobel=True):  # 24.09.19 recognizer
+def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen, is_afa_loss, is_sobel=True, afa_layer=3):  # 24.09.19 recognizer
     gen.train()
     dis.train()
 
@@ -146,7 +148,13 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen, 
             feature_kd_loss = ofd_loss(f1_s, f1_t) + ofd_loss(f2_s, f2_t) + ofd_loss(f3_s, f3_t) + ofd_loss(f4_s, f4_t)
 
             if is_afa_loss:
-                afa_kd_loss = mse(f1_s_afa, f1_t_afa) + mse(f2_s_afa, f2_t_afa) + mse(f3_s_afa, f3_t_afa)
+                if afa_layer == 1:
+                    afa_kd_loss = mse(f3_s_afa, f3_t_afa)
+                elif afa_layer == 2:
+                    afa_kd_loss = mse(f2_s_afa, f2_t_afa) + mse(f3_s_afa, f3_t_afa)
+                else:
+                    afa_kd_loss = mse(f1_s_afa, f1_t_afa) + mse(f2_s_afa, f2_t_afa) + mse(f3_s_afa, f3_t_afa)
+
                 afa_kd_loss_weight = 1.0
                 afa_kd_loss = afa_kd_loss_weight * afa_kd_loss
             else:
@@ -215,7 +223,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen, 
                        epoch)  # 24.10.14 Original kd Loss
     writer.add_scalars('train/feature_kd_loss', {'Feature KD Loss': acc_feature_kd_loss / len(train_loader.dataset)},
                        epoch)  # 24.10.14 Feature kd Loss
-    
+
     if is_afa_loss:
         writer.add_scalars('train/feature_kd_loss', {'AFA KD Loss': acc_afa_kd_loss / len(train_loader.dataset)},
                            epoch)
@@ -231,7 +239,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen, 
 
 
 # Training
-def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen, is_afa_loss, is_sobel=True):
+def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen, is_afa_loss, is_sobel=True, afa_layer=3):
     gen.eval()
     dis.eval()
 
@@ -324,7 +332,13 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen, 
             feature_kd_loss = ofd_loss(f1_s, f1_t) + ofd_loss(f2_s, f2_t) + ofd_loss(f3_s, f3_t) + ofd_loss(f4_s, f4_t)
 
             if is_afa_loss:
-                afa_kd_loss = mse(f1_s_afa, f1_t_afa) + mse(f2_s_afa, f2_t_afa) + mse(f3_s_afa, f3_t_afa)
+                if afa_layer == 1:
+                    afa_kd_loss = mse(f3_s_afa, f3_t_afa)
+                elif afa_layer == 2:
+                    afa_kd_loss = mse(f2_s_afa, f2_t_afa) + mse(f3_s_afa, f3_t_afa)
+                else:
+                    afa_kd_loss = mse(f1_s_afa, f1_t_afa) + mse(f2_s_afa, f2_t_afa) + mse(f3_s_afa, f3_t_afa)
+
                 afa_kd_loss_weight = 1.0
                 afa_kd_loss = afa_kd_loss_weight * afa_kd_loss
             else:
@@ -390,7 +404,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen, 
                        epoch)  # 24.10.14 Original kd Loss
     writer.add_scalars('valid/feature_kd_loss', {'Feature KD Loss': acc_feature_kd_loss / len(valid_loader.dataset)},
                        epoch)  # 24.12.09 Feature kd Loss
-    
+
     if is_afa_loss:
         writer.add_scalars('valid/feature_kd_loss', {'AFA KD Loss': acc_afa_kd_loss / len(valid_loader.dataset)},
                            epoch)  # 24.12.09 Feature kd Loss
@@ -406,15 +420,17 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen, 
 
 if __name__ == '__main__':
     # ablation은 SDdb 만 !!!!!!!
-    NAME_DATASET = 'SDdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/ab2_no_afa/output'
+    NAME_DATASET = 'SDdb-1'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/ab2_no_afa_sep/output'
 
     is_afa_hp = False
     is_afa_lp = False
-    is_afa_both = False
+    is_afa_both = True
+    is_afa_sep = False  # True : 분리 O, False : 분리 X
+    afa_layer = None  # None or 1 or 2 or 3
 
     is_input_change = True
-    is_sobel = True
+    is_sobel = False
 
     if is_afa_hp or is_afa_lp or is_afa_both:
         is_afa_loss = True
@@ -574,7 +590,13 @@ if __name__ == '__main__':
     # gen = DQ_Thin_Sep_UNet_4_AFA(n_channels=3, n_classes=3).cuda()  # student model
 
     if is_afa_both:
-        gen = V_Thin_Sep_UNet_4_Feature(n_channels=3, n_classes=3).cuda()  # student model
+        if is_afa_sep:
+            if afa_layer:
+                gen = V_Thin_Sep_UNet_4_Feature_Ablation(n_channels=3, n_classes=3, layer=afa_layer).cuda()  # student model
+            else:
+                gen = V_Thin_Sep_UNet_4_Feature(n_channels=3, n_classes=3).cuda()  # student model
+        else:
+            gen = V_Thin_Sep_UNet_4_Feature_Ablation_sep(n_channels=3, n_classes=3).cuda()  # student model
     elif is_afa_hp:
         gen = V_Thin_Sep_UNet_4_Ablation_HP(n_channels=3, n_classes=3).cuda()  # student model
     elif is_afa_lp:
@@ -590,10 +612,10 @@ if __name__ == '__main__':
     # real_pool = ImagePool(500)
 
     opt_gen = optim.Adam(
-        list(gen.parameters()), lr=args.lr / 2, betas=(0.0, 0.9), weight_decay=1e-4
+        list(gen.parameters()), lr=args.lr / 2, betas=(0, 0.9), weight_decay=1e-4
     )
 
-    opt_dis = optim.Adam(dis.parameters(), lr=args.lr * 2, betas=(0.0, 0.9), weight_decay=1e-4)
+    opt_dis = optim.Adam(dis.parameters(), lr=args.lr * 2, betas=(0, 0.9), weight_decay=1e-4)
 
     # Load pre-trained weight
     if args.load_pretrain:
@@ -638,10 +660,10 @@ if __name__ == '__main__':
     for epoch in range(start_epoch + 1, 1 + args.epochs):
         print("----Start training[%d / %d]----" % (epoch, args.epochs))
 
-        train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen, is_afa_loss, is_sobel)  # 24.09.25 recognizier
+        train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen, is_afa_loss, is_sobel, afa_layer)  # 24.09.25 recognizier
 
         # Update the valid function to iterate over the tqdm-wrapped loader
-        valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen, is_afa_loss, is_sobel)  # 24.09.25 recognizier
+        valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen, is_afa_loss, is_sobel, afa_layer)  # 24.09.25 recognizier
 
         # Save the model weight every 10 epochs
         if (epoch % 10) == 0:
