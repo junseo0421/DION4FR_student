@@ -420,17 +420,17 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen, 
 
 if __name__ == '__main__':
     # ablation은 SDdb 만 !!!!!!!
-    NAME_DATASET = 'SDdb-2'
+    NAME_DATASET = 'SDdb-1'
     SAVE_BASE_DIR = '/content/drive/MyDrive/ab2_no_afa_sep/output'
 
     is_afa_hp = False
     is_afa_lp = False
     is_afa_both = True
-    is_afa_sep = False  # True : 분리 O, False : 분리 X
-    afa_layer = None  # None or 1 or 2 or 3
+    is_afa_sep = True  # True : 분리 O, False : 분리 X
+    afa_layer = 2  # None or 1 or 2 or 3
 
     is_input_change = True
-    is_sobel = False
+    is_sobel = True
 
     if is_afa_hp or is_afa_lp or is_afa_both:
         is_afa_loss = True
