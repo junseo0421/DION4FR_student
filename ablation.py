@@ -420,7 +420,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen, 
 
 if __name__ == '__main__':
     # ablation은 SDdb 만 !!!!!!!
-    NAME_DATASET = 'SDdb-1'
+    NAME_DATASET = 'SDdb-2'
     SAVE_BASE_DIR = '/content/drive/MyDrive/ab2_afa_layer1/output'
 
     is_afa_hp = False
