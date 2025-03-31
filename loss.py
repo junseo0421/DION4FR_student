@@ -603,7 +603,7 @@ class VID_NO_REG(nn.Module):
         # pred_mean = self.regressor(fm_s)
         pred_var = torch.log(1.0 + torch.exp(self.alpha)) + self.eps
         pred_var = pred_var.view(1, -1, 1, 1)
-        neg_log_prob = 0.5 * (torch.log(fm_s) + (fm_s-fm_t)**2 / pred_var)
+        neg_log_prob = 0.5 * (torch.log(pred_var) + (fm_s-fm_t)**2 / pred_var)
         loss = torch.mean(neg_log_prob)
 
         return loss
