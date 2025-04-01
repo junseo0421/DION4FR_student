@@ -314,7 +314,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'SDdb-1'
+    NAME_DATASET = 'HKdb-2'
     SAVE_BASE_DIR = '/content/drive/MyDrive/vid_kd/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')
@@ -477,10 +477,10 @@ if __name__ == '__main__':
     # fake_pool = ImagePool(500)
     # real_pool = ImagePool(500)
 
-    vid_loss_1 = VID_NO_REG(out_channels=4).cuda(0)
-    vid_loss_2 = VID_NO_REG(out_channels=8).cuda(0)
-    vid_loss_3 = VID_NO_REG(out_channels=16).cuda(0)
-    vid_loss_4 = VID_NO_REG(out_channels=32).cuda(0)
+    vid_loss_1 = VID(in_channels=4, mid_channels=4, out_channels=4).cuda(0)
+    vid_loss_2 = VID(in_channels=8, mid_channels=8, out_channels=8).cuda(0)
+    vid_loss_3 = VID(in_channels=16, mid_channels=16, out_channels=16).cuda(0)
+    vid_loss_4 = VID(in_channels=32, mid_channels=32, out_channels=32).cuda(0)
 
     opt_gen = optim.Adam(
         list(gen.parameters()) +
