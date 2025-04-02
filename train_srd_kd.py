@@ -128,7 +128,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
             original_kd_loss = mae(teacher_pred, I_pred) * 20  # 가중치는 pxiel_rec_loss와 똑같이 설정. 나중에 조절 필요할 수도
 
             ### feature KD loss
-            feature_kd_loss = (srd_loss_1(f1_s, f1_t) + srd_loss_2(f2_s, f2_t) + srd_loss_3(f3_s, f3_t) + srd_loss_4(f4_s, f4_t)) * 0.2
+            feature_kd_loss = (srd_loss_1(f1_s, f1_t) + srd_loss_2(f2_s, f2_t) + srd_loss_3(f3_s, f3_t) + srd_loss_4(f4_s, f4_t))
 
             # ## Update Generator
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
@@ -257,8 +257,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             original_kd_loss = mae(teacher_pred, I_pred) * 20
 
             ### feature KD loss
-            feature_kd_loss = (srd_loss_1(f1_s, f1_t) + srd_loss_2(f2_s, f2_t) + srd_loss_3(f3_s, f3_t) + srd_loss_4(f4_s, f4_t)) * 0.2
-
+            feature_kd_loss = (srd_loss_1(f1_s, f1_t) + srd_loss_2(f2_s, f2_t) + srd_loss_3(f3_s, f3_t) + srd_loss_4(f4_s, f4_t))
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
 
             # 24.10.14 original kd loss
