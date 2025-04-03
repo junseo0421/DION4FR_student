@@ -59,6 +59,11 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
     gen.train()
     dis.train()
 
+    srd_loss_1.train()
+    srd_loss_2.train()
+    srd_loss_3.train()
+    srd_loss_4.train()
+
     mse = nn.MSELoss().cuda(0)
     mae = nn.L1Loss().cuda(0)  # 평균 절대 오차(MAE)를 사용하여 픽셀 간의 차이 계산
     mrf = IDMRFLoss(device=0)  # 텍스처 일관성 평가
@@ -185,6 +190,11 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
 def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
     gen.eval()
     dis.eval()
+
+    srd_loss_1.eval()
+    srd_loss_2.eval()
+    srd_loss_3.eval()
+    srd_loss_4.eval()
 
     mse = nn.MSELoss().cuda(0)
     mae = nn.L1Loss().cuda(0)
