@@ -421,16 +421,18 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen, 
 if __name__ == '__main__':
     # ablation은 SDdb 만 !!!!!!!
     NAME_DATASET = 'SDdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/ab2_afa_layer1/output'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/ab2_afa_threshold_02/output'
 
     is_afa_hp = False
     is_afa_lp = False
     is_afa_both = True
     is_afa_sep = True  # True : 분리 O, False : 분리 X
-    afa_layer = 1  # None or 1 or 2 or 3
+    afa_layer = None  # None or 1 or 2
 
     is_input_change = True
     is_sobel = True
+
+    afa_threshold = 0.2     # 기본값 0.1
 
     if is_afa_hp or is_afa_lp or is_afa_both:
         is_afa_loss = True
@@ -594,7 +596,10 @@ if __name__ == '__main__':
             if afa_layer:
                 gen = V_Thin_Sep_UNet_4_Feature_Ablation(n_channels=3, n_classes=3, layer=afa_layer).cuda()  # student model
             else:
-                gen = V_Thin_Sep_UNet_4_Feature(n_channels=3, n_classes=3).cuda()  # student model
+                if afa_threshold:
+                    gen = V_Thin_Sep_UNet_4_Threshold(n_channels=3, n_classes=3, afa_threshold=afa_threshold).cuda()
+                else:
+                    gen = V_Thin_Sep_UNet_4_Feature(n_channels=3, n_classes=3).cuda()  # student model
         else:
             gen = V_Thin_Sep_UNet_4_Feature_Ablation_sep(n_channels=3, n_classes=3).cuda()  # student model
     elif is_afa_hp:
