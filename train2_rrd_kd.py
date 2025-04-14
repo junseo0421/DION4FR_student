@@ -318,7 +318,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'HKdb-1'
+    NAME_DATASET = 'SDdb-2'
     SAVE_BASE_DIR = '/content/drive/MyDrive/rrd_kd_2/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')
@@ -491,10 +491,10 @@ if __name__ == '__main__':
         list(rrd_1.parameters()) +
         list(rrd_2.parameters()) +
         list(rrd_3.parameters()) +
-        list(rrd_4.parameters()), lr=args.lr / 2, betas=(0, 0.9), weight_decay=1e-4
+        list(rrd_4.parameters()), lr=args.lr / 2, betas=(0.0, 0.9), weight_decay=1e-4
     )
 
-    opt_dis = optim.Adam(dis.parameters(), lr=args.lr * 2, betas=(0, 0.9), weight_decay=1e-4)
+    opt_dis = optim.Adam(dis.parameters(), lr=args.lr * 2, betas=(0.0, 0.9), weight_decay=1e-4)
 
     # Load pre-trained weight
     if args.load_pretrain:
