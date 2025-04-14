@@ -514,14 +514,14 @@ if __name__ == '__main__':
                               imglist1=train_ls_original,  # First list of images
                               imglist2=train_ls_mask,  # Second list of images
                               imglist3=train_ls_clahe)   # 24.09.20 수정
-    train_loader = DataLoader(train_data, batch_size=args.train_batch_size, shuffle=True, num_workers=4)
+    train_loader = DataLoader(train_data, batch_size=args.train_batch_size, shuffle=True, num_workers=4, drop_last=True)
     print('train data: %d images' % (len(train_loader.dataset)))
 
     valid_data = dataset_norm(root=args.train_data_dir, transforms=transformations, imgSize=192, inputsize=128,
                               imglist1=valid_ls_original,  # First list of images
                               imglist2=valid_ls_mask,  # Second list of images
                               imglist3=valid_ls_clahe)  # Third list of images)
-    valid_loader = DataLoader(valid_data, batch_size=args.train_batch_size, shuffle=True, num_workers=4)
+    valid_loader = DataLoader(valid_data, batch_size=args.train_batch_size, shuffle=True, num_workers=4, drop_last=True)
     print('valid data: %d images' % (len(valid_loader.dataset)))
 
     # Train & test the model
