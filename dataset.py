@@ -66,9 +66,6 @@ def center_crop(img, target_height, target_width):
     return img
 
 class dataset_norm(Dataset):
-    # prepare data for self-reconstruction,
-    # where the two input photos and the intermediate region are obtained from the same image
-
     def __init__(self, root='', transforms=None, imgSize=192, inputsize=128, imglist1=[], imglist2=[], imglist3=[]):  # 24.09.20 수정
         # --PARAMS--
         # root: the path of the data
@@ -84,21 +81,12 @@ class dataset_norm(Dataset):
         self.img_list2 = imglist2
         self.img_list3 = imglist3
 
-        # for name in file_list:
-        #     img = Image.open(name)
-        #     if (img.size[0] >= (self.imgSize)) and (img.size[1] >= self.imgSize):
-        #         self.img_list += [name]
-
         self.size = len(self.img_list1)
 
     def __getitem__(self, index):
-        # --RETURN--
-        # input1(left), input2(right), groundtruth of the intermediate region
         index = index % self.size
 
         # 각 경로에서 이미지를 그레이스케일로 로드
-        img = Image.open(self.img_list1[index]).convert("RGB")  # GT
-
         img1 = Image.open(self.img_list1[index]).convert("L")
         img2 = Image.open(self.img_list2[index]).convert("L")
         img3 = Image.open(self.img_list3[index]).convert("L")
@@ -114,10 +102,10 @@ class dataset_norm(Dataset):
         # 변환을 적용하기 위해 이미지를 PIL 이미지로 변환
         img_cat = Image.fromarray(img_cat)
 
-        # 변환 적용
-        if self.transforms:
-            img = self.transforms(img)
-            img_cat = self.transforms(img_cat)  # 자동으로 C이 index 0으로 옮겨짐
+        img_cat = self.transforms(img_cat)
+
+        c0 = img_cat[0].unsqueeze(0)  # (1, H, W)
+        gt = c0.repeat(3, 1, 1)  # (3, H, W)
 
         i = (self.imgSize - self.inputsize)//2  # (192 - 128) / 2 = 32
 
@@ -126,19 +114,7 @@ class dataset_norm(Dataset):
         mask_img = np.ones((3, self.imgSize, self.imgSize))
         mask_img[:, :, i:i + self.inputsize] = iner_img
 
-        # # 텐서로 변환하여 저장
-        # mask_img_tensor = torch.tensor(mask_img, dtype=torch.float32)
-        #
-        # # 저장할 경로 설정
-        # save_dir = r'D:\DION4FR\output\HKdb-2\mask_images'  # 저장할 디렉토리 경로를 설정
-        # os.makedirs(save_dir, exist_ok=True)  # 디렉토리가 없으면 생성
-        #
-        # # 파일 이름 구성 및 저장
-        # file_name = f'mask_image_{index}.png'
-        # file_path = os.path.join(save_dir, file_name)
-        # save_image(mask_img_tensor, file_path)
-
-        return img, mask_img
+        return gt, mask_img
 
     def __len__(self):
         return self.size

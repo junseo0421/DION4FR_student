@@ -91,7 +91,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             ## Generate Image
             I_pred, _ = gen(mask_img)  # 생성된 image(2, 3, 192, 192), 중간 feature map
 
-            mask_pred = I_pred[:, :, :, 32:32 + 128]  # 생성된 image의 일부분 선택
+            # mask_pred = I_pred[:, :, :, 32:32 + 128]  # 생성된 image의 일부분 선택
 
             ## Compute losses
             ## Update Discriminator
@@ -101,34 +101,40 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):  #24.09.19 r
             dis_loss.backward()
             opt_dis.step()  # 가중치 update
 
-            # Pixel Reconstruction Loss
-            pixel_rec_loss = mae(I_pred, gt) * 20  # pixel 재구성 손실
+            for _ in range(2):
+                I_pred, _ = gen(mask_img)
 
-            # Texture Consistency Loss (IDMRF Loss)
-            mrf_loss = mrf((mask_pred.cuda(0) + 1) / 2.0, (iner_img.cuda(0) + 1) / 2.0) * 0.5 / batchSize  # 텍스처 일관성 손실
+                mask_pred = I_pred[:, :, :, 32:32 + 128]  # 생성된 image의 일부분 선택
 
-            ### SSIM loss
-            left_loss = ssim_loss(I_pred[:, :, :, 0:32], I_pred[:, :, :, 32:64])
-            right_loss = ssim_loss(I_pred[:, :, :, 160:192], I_pred[:, :, :, 128:160])
-            total_ssim_loss = left_loss + right_loss
+                # Pixel Reconstruction Loss
+                pixel_rec_loss = mae(I_pred, gt) * 20  # pixel 재구성 손실
 
-            ### Sobel loss
-            sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
-            sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
-            total_sobel_loss = sobel_left_loss + sobel_right_loss
+                # Texture Consistency Loss (IDMRF Loss)
+                mrf_loss = mrf((mask_pred.cuda(0) + 1) / 2.0,
+                               (iner_img.cuda(0) + 1) / 2.0) * 0.5 / batchSize  # 텍스처 일관성 손실
 
-            sobel_loss_weight = 20.0
+                ### SSIM loss
+                left_loss = ssim_loss(I_pred[:, :, :, 0:32], I_pred[:, :, :, 32:64])
+                right_loss = ssim_loss(I_pred[:, :, :, 160:192], I_pred[:, :, :, 128:160])
+                total_ssim_loss = left_loss + right_loss
 
-            total_sobel_loss = total_sobel_loss * sobel_loss_weight
+                ### Sobel loss
+                sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
+                sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
+                total_sobel_loss = sobel_left_loss + sobel_right_loss
 
-            # ## Update Generator
-            gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
+                sobel_loss_weight = 20.0
 
-            gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss
+                total_sobel_loss = total_sobel_loss * sobel_loss_weight
 
-            opt_gen.zero_grad()
-            gen_loss.backward()
-            opt_gen.step()
+                # ## Update Generator
+                gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
+
+                gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(0) + total_ssim_loss + total_sobel_loss
+
+                opt_gen.zero_grad()
+                gen_loss.backward()
+                opt_gen.step()
 
             acc_pixel_rec_loss += pixel_rec_loss.data
             acc_gen_adv_loss += gen_adv_loss.data
@@ -262,8 +268,8 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'HKdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/dq_u_net_sep4_sobel_20/output'
+    NAME_DATASET = 'HKdb-1'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/kd_afa_net/q_sep_unet_sobel_afa/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'logs_all')
@@ -280,15 +286,13 @@ if __name__ == '__main__':
 
         parser.add_argument('--train_batch_size', type=int, help='batch size of training data', default=8)
         parser.add_argument('--test_batch_size', type=int, help='batch size of testing data', default=16)
-        parser.add_argument('--epochs', type=int, help='number of epoches', default=500)
-        parser.add_argument('--lr', type=float, help='learning rate', default=0.0004)
+        parser.add_argument('--epochs', type=int, help='number of epoches', default=600)
+        parser.add_argument('--lr_G', type=float, help='generator learning rate', default=0.0004)
+        parser.add_argument('--lr_D', type=float, help='discriminator learning rate', default=0.000004)
         parser.add_argument('--alpha', type=float, help='learning rate decay for discriminator', default=0.1)
         parser.add_argument('--load_pretrain', type=bool, help='load pretrain weight', default=False)  # pretrain !!
         parser.add_argument('--test_flag', type=bool, help='testing while training', default=False)
         parser.add_argument('--adjoint', type=bool, help='if use adjoint in odenet', default=True)
-
-        # parser.add_argument('--skip_connection', type=int,help='layers with skip connection', nargs='+', default=[0,1,2,3,4])
-        # parser.add_argument('--attention', type=int,help='layers with attention mechanism applied on skip connection', nargs='+', default=[1])
 
         parser.add_argument('--load_weight_dir', type=str, help='directory of pretrain model weights',
                             default=LOAD_WEIGHT_DIR)
@@ -296,12 +300,6 @@ if __name__ == '__main__':
                             default=SAVE_WEIGHT_DIR)
         parser.add_argument('--log_dir', type=str, help='directory of saving logs', default=SAVE_LOG_DIR)
         parser.add_argument('--train_data_dir', type=str, help='directory of training data', default=TRAIN_DATA_DIR)
-        # parser.add_argument('--test_data_dir', type=str, help='directory of testing data', default=TEST_DATA_DIR)
-        # parser.add_argument('--gpu', type=str, help='gpu device', default='0')
-
-        # # teacher model weight
-        # parser.add_argument('--load_teacher_weight_dir', type=str, help='directory of teacher model weight',
-        #                     default=LOAD_TEACHER_WEIGHT_DIR)  # 24.09.19 Teacher weight dir
 
         opts = parser.parse_args()
         return opts
@@ -392,7 +390,7 @@ if __name__ == '__main__':
 
     # Initialize the model
     print('Initializing model...')
-    gen = DQ_Thin_Sep_UNet_4(n_channels=3, n_classes=3).cuda()  # U-Net student model
+    gen = Q_Thin_Sep_UNet_4_Feature(n_channels=3, n_classes=3).cuda()  # U-Net student model
 
     # 24.10.11 모델 파라미터 수 출력
     print_model_parameters(gen)
@@ -401,8 +399,8 @@ if __name__ == '__main__':
     # fake_pool = ImagePool(500)
     # real_pool = ImagePool(500)
 
-    opt_gen = optim.Adam(gen.parameters(), lr=args.lr / 2, betas=(0, 0.9), weight_decay=1e-4)
-    opt_dis = optim.Adam(dis.parameters(), lr=args.lr * 2, betas=(0, 0.9), weight_decay=1e-4)
+    opt_gen = optim.Adam(gen.parameters(), lr=args.lr_G, betas=(0.5, 0.999), weight_decay=1e-4)
+    opt_dis = optim.Adam(dis.parameters(), lr=args.lr_D, betas=(0.5, 0.999), weight_decay=1e-4)
 
     # Load pre-trained weight
     if args.load_pretrain:
