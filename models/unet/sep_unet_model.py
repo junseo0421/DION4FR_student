@@ -28,17 +28,17 @@ class Sep_UNet_Feature(nn.Module):
         # Output layer
         self.outc = (OutConv(64, n_classes))
 
-        self.low_attention_weights1 = torch.nn.Parameter(torch.randn(64, 64, 1, 1))
-        self.high_attention_weights1 = torch.nn.Parameter(torch.randn(64, 64, 1, 1))
+        self.low_attention_weights1 = torch.nn.Parameter(torch.randn(64, 64, 1, 1) * 0.01)
+        self.high_attention_weights1 = torch.nn.Parameter(torch.randn(64, 64, 1, 1) * 0.01)
 
-        self.low_attention_weights2 = torch.nn.Parameter(torch.randn(128, 128, 1, 1))
-        self.high_attention_weights2 = torch.nn.Parameter(torch.randn(128, 128, 1, 1))
+        self.low_attention_weights2 = torch.nn.Parameter(torch.randn(128, 128, 1, 1) * 0.01)
+        self.high_attention_weights2 = torch.nn.Parameter(torch.randn(128, 128, 1, 1) * 0.01)
 
-        self.low_attention_weights3 = torch.nn.Parameter(torch.randn(256, 256, 1, 1))
-        self.high_attention_weights3 = torch.nn.Parameter(torch.randn(256, 256, 1, 1))
+        self.low_attention_weights3 = torch.nn.Parameter(torch.randn(256, 256, 1, 1) * 0.01)
+        self.high_attention_weights3 = torch.nn.Parameter(torch.randn(256, 256, 1, 1) * 0.01)
 
-        self.low_attention_weights4 = torch.nn.Parameter(torch.randn(512, 512, 1, 1))
-        self.high_attention_weights4 = torch.nn.Parameter(torch.randn(512, 512, 1, 1))
+        self.low_attention_weights4 = torch.nn.Parameter(torch.randn(512, 512, 1, 1) * 0.01)
+        self.high_attention_weights4 = torch.nn.Parameter(torch.randn(512, 512, 1, 1) * 0.01)
 
         self.concat_conv1 = nn.Conv2d(128, 64, kernel_size=3, padding=1)
         self.concat_conv2 = nn.Conv2d(256, 128, kernel_size=3, padding=1)
@@ -55,7 +55,7 @@ class Sep_UNet_Feature(nn.Module):
     def afa_module(self, x, low_attention_weight, high_attention_weight):  # x는 0 ~ 1 값
         cuton = 0.1
         x_ft = torch.fft.fft2(x, norm="ortho")  # B, C, H, W
-        x_shift = torch.fft.fftshift(x_ft)  # B, C, H, W
+        x_shift = torch.fft.fftshift(x_ft, dim=(-2, -1))  # B, C, H, W
 
         magnitude = torch.abs(x_shift)  # 크기 값 계산
         phase = torch.angle(x_shift)  # 위상 값 계산
@@ -85,7 +85,7 @@ class Sep_UNet_Feature(nn.Module):
 
         fre_out = torch.complex(real, imag)
 
-        x_fft = torch.fft.ifftshift(fre_out)
+        x_fft = torch.fft.ifftshift(fre_out, dim=(-2, -1))
 
         out = torch.fft.ifft2(x_fft, s=(x.size(-2), x.size(-1)), norm="ortho").real  # phase는 그대로 사용
 
