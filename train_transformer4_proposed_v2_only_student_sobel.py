@@ -268,8 +268,8 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'HKdb-1'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/kd_afa_net/sep_unet_sobel_afa/output'
+    NAME_DATASET = 'HKdb-2'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/kd_afa_net/thin_sep_unet_sobel_afa/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'logs_all')
@@ -288,7 +288,7 @@ if __name__ == '__main__':
         parser.add_argument('--test_batch_size', type=int, help='batch size of testing data', default=16)
         parser.add_argument('--epochs', type=int, help='number of epoches', default=600)
         parser.add_argument('--lr_G', type=float, help='generator learning rate', default=0.0004)
-        parser.add_argument('--lr_D', type=float, help='discriminator learning rate', default=0.000001)
+        parser.add_argument('--lr_D', type=float, help='discriminator learning rate', default=0.000004)
         parser.add_argument('--alpha', type=float, help='learning rate decay for discriminator', default=0.1)
         parser.add_argument('--load_pretrain', type=bool, help='load pretrain weight', default=False)  # pretrain !!
         parser.add_argument('--test_flag', type=bool, help='testing while training', default=False)
@@ -390,7 +390,7 @@ if __name__ == '__main__':
 
     # Initialize the model
     print('Initializing model...')
-    gen = Sep_UNet_Feature(n_channels=3, n_classes=3).cuda()  # U-Net student model
+    gen = Thin_Sep_UNet_4_Feature(n_channels=3, n_classes=3).cuda()  # U-Net student model
 
     # 24.10.11 모델 파라미터 수 출력
     print_model_parameters(gen)
@@ -417,6 +417,8 @@ if __name__ == '__main__':
     transformations = transforms.Compose(
         [torchvision.transforms.RandomResizedCrop((192, 192), scale=(0.8, 1.2), ratio=(0.75, 1.3333333333333333), ),
          CenterCrop(192), ToTensor(), Normalize(mean, std)])  # augmentation
+    transformations_valid = transforms.Compose(
+        [torchvision.transforms.Resize((192, 192)), ToTensor(), Normalize(mean, std)])
     
     train_data = dataset_norm(root=args.train_data_dir, transforms=transformations, imgSize=192, inputsize=128,
                               imglist1=train_ls_original,  # First list of images
@@ -425,11 +427,11 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_data, batch_size=args.train_batch_size, shuffle=True, num_workers=4)
     print('train data: %d images' % (len(train_loader.dataset)))
 
-    valid_data = dataset_norm(root=args.train_data_dir, transforms=transformations, imgSize=192, inputsize=128,
+    valid_data = dataset_norm(root=args.train_data_dir, transforms=transformations_valid, imgSize=192, inputsize=128,
                               imglist1=valid_ls_original,  # First list of images
                               imglist2=valid_ls_mask,  # Second list of images
                               imglist3=valid_ls_clahe)  # Third list of images)
-    valid_loader = DataLoader(valid_data, batch_size=args.train_batch_size, shuffle=True, num_workers=4)
+    valid_loader = DataLoader(valid_data, batch_size=args.train_batch_size, shuffle=False, num_workers=4)
     print('valid data: %d images' % (len(valid_loader.dataset)))
 
     # Train & test the model
