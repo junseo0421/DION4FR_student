@@ -953,6 +953,8 @@ class Thin_Sep_UNet_4_Feature(nn.Module):
         x_shift = torch.fft.fftshift(x_ft, dim=(-2, -1))  # B, C, H, W
 
         magnitude = torch.abs(x_shift)  # 크기 값 계산
+        magnitude = magnitude.clamp(min=1e-6, max=1e6)
+
         phase = torch.angle(x_shift)  # 위상 값 계산
 
         h, w = x_shift.shape[2:4]  # height and width
@@ -966,6 +968,9 @@ class Thin_Sep_UNet_4_Feature(nn.Module):
 
         low_attn_map = torch.nn.functional.conv2d(low_pass, low_attention_weight, padding=0)  # (B, C, H, W)에 (C, C, 1, 1)의 weight 로 conv 적용 (1x1 conv)
         high_attn_map = torch.nn.functional.conv2d(high_pass, high_attention_weight, padding=0)
+
+        low_attn_map  = low_attn_map - low_attn_map.amax(dim=1, keepdim=True)
+        high_attn_map = high_attn_map - high_attn_map.amax(dim=1, keepdim=True)
 
         low_attn_map = torch.nn.functional.softmax(low_attn_map, dim=1)
         high_attn_map = torch.nn.functional.softmax(high_attn_map, dim=1)
