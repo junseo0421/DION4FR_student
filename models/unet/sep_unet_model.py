@@ -940,10 +940,10 @@ class Thin_Sep_UNet_4_Feature(nn.Module):
         self.concat_conv3 = nn.Conv2d(256, 128, kernel_size=3, padding=1)
         self.concat_conv4 = nn.Conv2d(512, 256, kernel_size=3, padding=1)
 
-        self.bn1 = nn.BatchNorm2d(32)
-        self.bn2 = nn.BatchNorm2d(64)
-        self.bn3 = nn.BatchNorm2d(128)
-        self.bn4 = nn.BatchNorm2d(256)
+        self.bn1 = nn.BatchNorm2d(32, eps=1e-4)
+        self.bn2 = nn.BatchNorm2d(64, eps=1e-4)
+        self.bn3 = nn.BatchNorm2d(128, eps=1e-4)
+        self.bn4 = nn.BatchNorm2d(256, eps=1e-4)
 
         self.relu = nn.ReLU(inplace=True)
 
@@ -979,6 +979,7 @@ class Thin_Sep_UNet_4_Feature(nn.Module):
         high_pass_att = high_attn_map * high_pass
 
         mag_out = low_pass_att + high_pass_att
+        mag_out = mag_out.clamp(min=1e-6, max=1e6)
 
         real = mag_out * torch.cos(phase)  # 실수부
         imag = mag_out * torch.sin(phase)  # 허수부

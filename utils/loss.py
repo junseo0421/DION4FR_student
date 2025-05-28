@@ -90,6 +90,8 @@ class IDMRFLoss(nn.Module):
         dims_div_mrf = rela_dist.size()
         k_max_nc = torch.max(rela_dist.view(dims_div_mrf[0], dims_div_mrf[1], -1), dim=2)[0]
         div_mrf = torch.mean(k_max_nc, dim=1)
+
+        div_mrf = torch.clamp(div_mrf, min=1e-6)
         div_mrf_sum = -torch.log(div_mrf)
         div_mrf_sum = torch.sum(div_mrf_sum)
         return div_mrf_sum
