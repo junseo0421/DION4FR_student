@@ -28,6 +28,7 @@ from utils.utils import *
 
 from models.unet.unet_model import *
 from models.unet.sep_unet_model import *
+from models.unet.sep_unet_model_ablation import *
 
 from tqdm import tqdm
 import time
@@ -268,7 +269,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'SDdb-1'
+    NAME_DATASET = 'SDdb-2'
     SAVE_BASE_DIR = '/content/drive/MyDrive/kd_afa_net/thin_sep_unet_sobel_afa/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'checkpoints')

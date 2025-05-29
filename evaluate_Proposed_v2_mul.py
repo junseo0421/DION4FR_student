@@ -20,6 +20,7 @@ from torchvision.utils import save_image
 from utils.utils import *
 
 from models.unet.sep_unet_model import *
+from models.unet.sep_unet_model_ablation import *
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
