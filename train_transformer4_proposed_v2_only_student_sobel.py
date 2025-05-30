@@ -269,8 +269,8 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
                        epoch)
 
 if __name__ == '__main__':
-    NAME_DATASET = 'SDdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/kd_afa_net/thin_sep_unet_sobel_afa/output'
+    NAME_DATASET = 'SDdb-1'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/kd_afa_net/d_sep_unet_sobel_afa/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET , 'logs_all')
@@ -391,7 +391,7 @@ if __name__ == '__main__':
 
     # Initialize the model
     print('Initializing model...')
-    gen = Thin_Sep_UNet_4_Feature(n_channels=3, n_classes=3).cuda()  # U-Net student model
+    gen = D_Thin_Sep_UNet_4_Feature(n_channels=3, n_classes=3).cuda()  # U-Net student model
 
     # 24.10.11 모델 파라미터 수 출력
     print_model_parameters(gen)
