@@ -629,17 +629,29 @@ class DQ_Thin_Sep_UNet_4_Feature(nn.Module):  # m = 4, feature 1/8
         # Output layer
         self.outc = (OutConv(4, n_classes))
 
-        self.low_attention_weights1 = torch.nn.Parameter(torch.randn(4, 4, 1, 1))
-        self.high_attention_weights1 = torch.nn.Parameter(torch.randn(4, 4, 1, 1))
+        self.low_attention_weights1 = torch.nn.Parameter(torch.empty(4, 4, 1, 1))
+        self.high_attention_weights1 = torch.nn.Parameter(torch.empty(4, 4, 1, 1))
 
-        self.low_attention_weights2 = torch.nn.Parameter(torch.randn(8, 8, 1, 1))
-        self.high_attention_weights2 = torch.nn.Parameter(torch.randn(8, 8, 1, 1))
+        self.low_attention_weights2 = torch.nn.Parameter(torch.empty(8, 8, 1, 1))
+        self.high_attention_weights2 = torch.nn.Parameter(torch.empty(8, 8, 1, 1))
 
-        self.low_attention_weights3 = torch.nn.Parameter(torch.randn(16, 16, 1, 1))
-        self.high_attention_weights3 = torch.nn.Parameter(torch.randn(16, 16, 1, 1))
+        self.low_attention_weights3 = torch.nn.Parameter(torch.empty(16, 16, 1, 1))
+        self.high_attention_weights3 = torch.nn.Parameter(torch.empty(16, 16, 1, 1))
 
-        self.low_attention_weights4 = torch.nn.Parameter(torch.randn(32, 32, 1, 1))
-        self.high_attention_weights4 = torch.nn.Parameter(torch.randn(32, 32, 1, 1))
+        self.low_attention_weights4 = torch.nn.Parameter(torch.empty(32, 32, 1, 1))
+        self.high_attention_weights4 = torch.nn.Parameter(torch.empty(32, 32, 1, 1))
+
+        nn.init.kaiming_uniform_(self.low_attention_weights1, a=0, mode='fan_in', nonlinearity='relu')
+        nn.init.kaiming_uniform_(self.high_attention_weights1, a=0, mode='fan_in', nonlinearity='relu')
+
+        nn.init.kaiming_uniform_(self.low_attention_weights2, a=0, mode='fan_in', nonlinearity='relu')
+        nn.init.kaiming_uniform_(self.high_attention_weights2, a=0, mode='fan_in', nonlinearity='relu')
+
+        nn.init.kaiming_uniform_(self.low_attention_weights3, a=0, mode='fan_in', nonlinearity='relu')
+        nn.init.kaiming_uniform_(self.high_attention_weights3, a=0, mode='fan_in', nonlinearity='relu')
+
+        nn.init.kaiming_uniform_(self.low_attention_weights4, a=0, mode='fan_in', nonlinearity='relu')
+        nn.init.kaiming_uniform_(self.high_attention_weights4, a=0, mode='fan_in', nonlinearity='relu')
 
         self.concat_conv1 = nn.Conv2d(8, 4, kernel_size=3, padding=1)
         self.concat_conv2 = nn.Conv2d(16, 8, kernel_size=3, padding=1)
