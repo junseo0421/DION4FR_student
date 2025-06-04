@@ -551,7 +551,7 @@ class Proj_1x1(nn.Module):
 
         self.projector = nn.Sequential(*[
             nn.Conv2d(self.in_channels, self.out_channels, kernel_size=1),
-            nn.BatchNorm2d(self.out_channels),
+            nn.BatchNorm2d(self.out_channels, eps=1e-3),
             nn.ReLU(inplace=True)
         ])
 
