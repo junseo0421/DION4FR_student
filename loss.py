@@ -544,7 +544,7 @@ class Proj(nn.Module):
     
 
 class Proj_1x1(nn.Module):
-    def __init__(self, in_channels, out_channels, factor=2):
+    def __init__(self, in_channels, out_channels):
         super(Proj_1x1, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
