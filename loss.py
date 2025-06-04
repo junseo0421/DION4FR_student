@@ -571,13 +571,12 @@ class Proj_mlp(nn.Module):
     def __init__(self, in_channels, out_channels, factor=2):
         super(Proj_mlp, self).__init__()
         self.in_channels = in_channels
-        self.mid_channels = out_channels // 2
         self.out_channels = out_channels
 
         self.projector = nn.Sequential(*[
-            nn.Conv2d(self.in_channels, self.mid_channels, kernel_size=1),
+            nn.Conv2d(self.in_channels, self.out_channels, kernel_size=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(self.mid_channels, self.out_channels, kernel_size=1)
+            nn.Conv2d(self.out_channels, self.out_channels, kernel_size=1)
         ])
 
     def forward(self, fm):
