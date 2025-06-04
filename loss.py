@@ -519,16 +519,66 @@ class SRD(nn.Module):
         return loss
 
 
-class Projector_1x1(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(Projector_1x1, self).__init__()
+class Proj(nn.Module):
+    def __init__(self, in_channels, out_channels, factor=2):
+        super(Proj, self).__init__()
         self.in_channels = in_channels
+        self.mid_channels = out_channels // 2
         self.out_channels = out_channels
 
-        self.projector = nn.Sequential(
-            nn.Conv2d(self.in_channels, self.out_channels, kernel_size=1),
-            nn.ReLU()
-        )
+        self.projector = nn.Sequential(*[
+            nn.Conv2d(self.in_channels, self.mid_channels, kernel_size=1),
+            nn.BatchNorm2d(self.mid_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(self.mid_channels, self.mid_channels, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(self.mid_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(self.mid_channels, self.out_channels, kernel_size=1),
+            nn.BatchNorm2d(self.out_channels),
+            nn.ReLU(inplace=True)
+        ])
+
+    def forward(self, fm):
+        modified_fm = self.projector(fm)
+        return modified_fm
+    
+
+class Proj_1x1(nn.Module):
+    def __init__(self, in_channels, out_channels, factor=2):
+        super(Proj_1x1, self).__init__()
+        self.in_channels = in_channels
+        self.mid_channels = out_channels // 2
+        self.out_channels = out_channels
+
+        self.projector = nn.Sequential(*[
+            nn.Conv2d(self.in_channels, self.mid_channels, kernel_size=1),
+            nn.BatchNorm2d(self.mid_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(self.mid_channels, self.mid_channels, kernel_size=1),
+            nn.BatchNorm2d(self.mid_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(self.mid_channels, self.out_channels, kernel_size=1),
+            nn.BatchNorm2d(self.out_channels),
+            nn.ReLU(inplace=True)
+        ])
+
+    def forward(self, fm):
+        modified_fm = self.projector(fm)
+        return modified_fm
+    
+
+class Proj_mlp(nn.Module):
+    def __init__(self, in_channels, out_channels, factor=2):
+        super(Proj_mlp, self).__init__()
+        self.in_channels = in_channels
+        self.mid_channels = out_channels // 2
+        self.out_channels = out_channels
+
+        self.projector = nn.Sequential(*[
+            nn.Conv2d(self.in_channels, self.mid_channels, kernel_size=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(self.mid_channels, self.out_channels, kernel_size=1)
+        ])
 
     def forward(self, fm):
         modified_fm = self.projector(fm)
