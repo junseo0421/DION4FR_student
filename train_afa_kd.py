@@ -333,8 +333,8 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
 
 if __name__ == '__main__':
-    NAME_DATASET = 'HKdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/kd_afa_net/afa_kd_1/output'
+    NAME_DATASET = 'SDdb-1'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/kd_afa_net/afa_kd_1x1/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'logs_all')
@@ -366,7 +366,7 @@ if __name__ == '__main__':
         parser.add_argument('--test_batch_size', type=int, help='batch size of testing data', default=16)
         parser.add_argument('--epochs', type=int, help='number of epoches', default=600)
         parser.add_argument('--lr_G', type=float, help='generator learning rate', default=0.0004)
-        parser.add_argument('--lr_D', type=float, help='discriminator learning rate', default=0.000004)
+        parser.add_argument('--lr_D', type=float, help='discriminator learning rate', default=0.000001)
         parser.add_argument('--alpha', type=float, help='learning rate decay for discriminator', default=0.1)
         parser.add_argument('--load_pretrain', type=bool, help='load pretrain weight', default=False)  # pretrain !!
         parser.add_argument('--test_flag', type=bool, help='testing while training', default=False)
