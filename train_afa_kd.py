@@ -366,7 +366,7 @@ if __name__ == '__main__':
         parser.add_argument('--test_batch_size', type=int, help='batch size of testing data', default=16)
         parser.add_argument('--epochs', type=int, help='number of epoches', default=600)
         parser.add_argument('--lr_G', type=float, help='generator learning rate', default=0.0004)
-        parser.add_argument('--lr_D', type=float, help='discriminator learning rate', default=0.000001)
+        parser.add_argument('--lr_D', type=float, help='discriminator learning rate', default=0.000002)
         parser.add_argument('--alpha', type=float, help='learning rate decay for discriminator', default=0.1)
         parser.add_argument('--load_pretrain', type=bool, help='load pretrain weight', default=False)  # pretrain !!
         parser.add_argument('--test_flag', type=bool, help='testing while training', default=False)
