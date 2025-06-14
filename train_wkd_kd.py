@@ -68,17 +68,12 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
     gen.train()
     dis.train()
 
-    projector_1.train()
-    projector_2.train()
-    projector_3.train()
-    projector_4.train()
-
     mse = nn.MSELoss().cuda(0)
     mae = nn.L1Loss().cuda(0)  # 평균 절대 오차(MAE)를 사용하여 픽셀 간의 차이 계산
     mrf = IDMRFLoss(device=0)  # 텍스처 일관성 평가
     ssim_loss = SSIM_loss().cuda(0)  # 구조적 유사성
     sobel_loss = Sobel_loss().cuda(0)
-    cwd_loss = CWD().cuda(0)
+    wkd_loss = WKD().cuda(0)
 
     acc_pixel_rec_loss = 0
     acc_mrf_loss = 0
@@ -88,7 +83,6 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
     acc_total_sobel_loss = 0
 
     acc_original_kd_loss = 0  # 24.10.14 original KD loss
-    acc_feature_kd_loss = 0
 
     total_gen_loss = 0
 
@@ -142,22 +136,21 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
                 ### original KD loss
                 with torch.no_grad():
                     teacher_pred, features_t = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
-                    f1_t, f2_t, f3_t, f4_t = features_t["x1"], features_t["x2"], features_t["x3"], features_t["x4"]
 
-                original_kd_loss = mae(teacher_pred, I_pred) * 20  # 가중치는 pxiel_rec_loss와 똑같이 설정. 나중에 조절 필요할 수도
+                original_kd_loss = wkd_loss(teacher_pred, I_pred) * 20  # 가중치는 pxiel_rec_loss와 똑같이 설정. 나중에 조절 필요할 수도
 
                 ### feature KD loss
-                feature_kd_loss = cwd_loss(projector_1(f1_s), f1_t) + cwd_loss(projector_2(f2_s), f2_t) + cwd_loss(projector_3(f3_s), f3_t) + cwd_loss(projector_4(f4_s), f4_t)
-
-                feature_kd_loss_weight = 1.0
-
-                feature_kd_loss = feature_kd_loss * feature_kd_loss_weight
+                # feature_kd_loss = mse(projector_1(f1_s), f1_t) + mse(projector_2(f2_s), f2_t) + mse(projector_3(f3_s), f3_t) + mse(projector_4(f4_s), f4_t)
+                #
+                # feature_kd_loss_weight = 10.0
+                #
+                # feature_kd_loss = feature_kd_loss * feature_kd_loss_weight
 
                 # ## Update Generator
                 gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
 
                 gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(
-                    0) + total_ssim_loss + total_sobel_loss + original_kd_loss + feature_kd_loss
+                    0) + total_ssim_loss + total_sobel_loss + original_kd_loss
 
                 opt_gen.zero_grad()
                 gen_loss.backward()
@@ -171,7 +164,6 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
             acc_total_sobel_loss += total_sobel_loss
 
             acc_original_kd_loss += original_kd_loss.data  # 24.10.14 Original kd Loss
-            acc_feature_kd_loss += feature_kd_loss.data
 
             total_gen_loss += gen_loss.data
 
@@ -180,7 +172,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
             pbar.set_postfix({'gen_loss': gen_loss.item(),
                               'dis_loss': dis_loss.item(),
                               'sobel_loss': total_sobel_loss.item(),
-                              'feature_kd_loss': feature_kd_loss.item()
+                              'original_kd_loss': original_kd_loss.item()
                               })
 
     ## Tensor board
@@ -194,8 +186,6 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
                        epoch)
     writer.add_scalars('train/generator_loss', {'Original KD Loss': acc_original_kd_loss / len(train_loader.dataset)},
                        epoch)  # 24.10.14 Original kd Loss
-    writer.add_scalars('train/afa_loss', {'feature_kd_loss': feature_kd_loss / len(train_loader.dataset)},
-                       epoch)  # 24.10.14 Feature kd Loss
     writer.add_scalars('train/SSIM_loss', {'total gen Loss': acc_ssim_loss / len(train_loader.dataset)},
                        epoch)
     writer.add_scalars('train/total_gen_loss', {'total gen Loss': total_gen_loss / len(train_loader.dataset)},
@@ -209,17 +199,12 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
     gen.eval()
     dis.eval()
 
-    projector_1.eval()
-    projector_2.eval()
-    projector_3.eval()
-    projector_4.eval()
-
     mse = nn.MSELoss().cuda(0)
     mae = nn.L1Loss().cuda(0)
     mrf = IDMRFLoss(device=0)
     ssim_loss = SSIM_loss().cuda(0)
     sobel_loss = Sobel_loss().cuda(0)
-    cwd_loss = CWD().cuda(0)
+    wkd_loss = WKD().cuda(0)
 
     acc_pixel_rec_loss = 0
     acc_mrf_loss = 0
@@ -229,7 +214,6 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
     acc_total_sobel_loss = 0
 
     acc_original_kd_loss = 0  # 24.10.14 original KD loss
-    acc_feature_kd_loss = 0
 
     total_gen_loss = 0
 
@@ -245,7 +229,6 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             ## Generate Image
             with torch.no_grad():
                 I_pred, features_s = gen(mask_img)
-                f1_s, f2_s, f3_s, f4_s = features_s["x1"], features_s["x2"], features_s["x3"], features_s["x4"]
 
             mask_pred = I_pred[:, :, :, 32:32 + 128]
 
@@ -278,21 +261,20 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             ### original KD loss
             with torch.no_grad():
                 teacher_pred, features_t = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
-                f1_t, f2_t, f3_t, f4_t = features_t["x1"], features_t["x2"], features_t["x3"], features_t["x4"]
 
-            original_kd_loss = mae(teacher_pred, I_pred) * 20
+            original_kd_loss = wkd_loss(teacher_pred, I_pred) * 20
 
             ### feature KD loss
-            feature_kd_loss = cwd_loss(projector_1(f1_s), f1_t) + cwd_loss(projector_2(f2_s), f2_t) + cwd_loss(projector_3(f3_s), f3_t) + cwd_loss(projector_4(f4_s), f4_t)
-
-            feature_kd_loss_weight = 1.0
-
-            feature_kd_loss = feature_kd_loss * feature_kd_loss_weight
+            # feature_kd_loss = mse(projector_1(f1_s), f1_t) + mse(projector_2(f2_s), f2_t) + mse(projector_3(f3_s), f3_t) + mse(projector_4(f4_s), f4_t)
+            #
+            # feature_kd_loss_weight = 10.0
+            #
+            # feature_kd_loss = feature_kd_loss * feature_kd_loss_weight
 
             gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
 
             gen_loss = pixel_rec_loss + gen_adv_loss + mrf_loss.cuda(
-                0) + total_ssim_loss + total_sobel_loss + original_kd_loss + feature_kd_loss
+                0) + total_ssim_loss + total_sobel_loss + original_kd_loss
             opt_gen.zero_grad()
 
             acc_pixel_rec_loss += pixel_rec_loss.data
@@ -303,7 +285,6 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             acc_total_sobel_loss += total_sobel_loss.data
 
             acc_original_kd_loss += original_kd_loss.data
-            acc_feature_kd_loss += feature_kd_loss.data
 
             total_gen_loss += gen_loss.data
 
@@ -312,7 +293,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             pbar.set_postfix({'gen_loss': gen_loss.item(),
                               'dis_loss': dis_loss.item(),
                               'sobel_loss': total_sobel_loss.item(),
-                              'feature_kd_loss': feature_kd_loss.item()
+                              'original_kd_loss': original_kd_loss.item()
                               })
 
     ## Tensor board
@@ -326,8 +307,6 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                        epoch)
     writer.add_scalars('valid/generator_loss', {'Original KD Loss': acc_original_kd_loss / len(valid_loader.dataset)},
                        epoch)  # 24.10.14 Original kd Loss
-    writer.add_scalars('valid/afa_loss', {'feature_kd_loss': acc_feature_kd_loss / len(valid_loader.dataset)},
-                       epoch)  # 24.12.09 Feature kd Loss
     writer.add_scalars('valid/SSIM_loss', {'total gen Loss': acc_ssim_loss / len(valid_loader.dataset)},
                        epoch)
     writer.add_scalars('valid/total_gen_loss', {'total gen Loss': total_gen_loss / len(valid_loader.dataset)},
@@ -336,9 +315,9 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                        epoch)
 
 
-if __name__ == '__main__': 
-    NAME_DATASET = 'HKdb-2'
-    SAVE_BASE_DIR = '/content/drive/MyDrive/kd_afa_net/cwd_kd/output'
+if __name__ == '__main__':
+    NAME_DATASET = 'HKdb-1'
+    SAVE_BASE_DIR = '/content/drive/MyDrive/kd_afa_net/wkd_kd/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')
     SAVE_LOG_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'logs_all')
@@ -492,16 +471,7 @@ if __name__ == '__main__':
 
     dis = MsImageDis().cuda()
 
-    projector_1 = Proj_1x1(in_channels=4, out_channels=32).cuda(0)
-    projector_2 = Proj_1x1(in_channels=8, out_channels=64).cuda(0)
-    projector_3 = Proj_1x1(in_channels=16, out_channels=128).cuda(0)
-    projector_4 = Proj_1x1(in_channels=32, out_channels=256).cuda(0)
-
-    opt_gen = optim.Adam(list(gen.parameters()) +
-                         list(projector_1.parameters()) +
-                         list(projector_2.parameters()) +
-                         list(projector_3.parameters()) +
-                         list(projector_4.parameters()), lr=args.lr_G, betas=(0.5, 0.999), weight_decay=1e-4)
+    opt_gen = optim.Adam(list(gen.parameters()), lr=args.lr_G, betas=(0.5, 0.999), weight_decay=1e-4)
     opt_dis = optim.Adam(dis.parameters(), lr=args.lr_D, betas=(0.5, 0.999), weight_decay=1e-4)
 
     # Load pre-trained weight
