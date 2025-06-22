@@ -134,7 +134,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
                 sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
                 total_sobel_loss = sobel_left_loss + sobel_right_loss
 
-                sobel_loss_weight = 20.0
+                sobel_loss_weight = 5.0
 
                 total_sobel_loss = total_sobel_loss * sobel_loss_weight
 
@@ -143,7 +143,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
                     teacher_pred, features_t = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
                     f1_t, f2_t, f3_t, f4_t = features_t["x1"], features_t["x2"], features_t["x3"], features_t["x4"]
 
-                original_kd_loss = mae(teacher_pred, I_pred) * 20  # 가중치는 pxiel_rec_loss와 똑같이 설정. 나중에 조절 필요할 수도
+                original_kd_loss = mae(teacher_pred, I_pred) * 10  # 가중치는 pxiel_rec_loss와 똑같이 설정. 나중에 조절 필요할 수도
 
                 ### feature KD loss
                 feature_kd_loss = vid_loss_1(f1_s, f1_t) + vid_loss_2(f2_s, f2_t) + vid_loss_3(f3_s, f3_t) + vid_loss_4(f4_s, f4_t)
@@ -269,7 +269,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
             total_sobel_loss = sobel_left_loss + sobel_right_loss
 
-            sobel_loss_weight = 20.0
+            sobel_loss_weight = 5.0
 
             total_sobel_loss = total_sobel_loss * sobel_loss_weight
 
@@ -278,7 +278,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
                 teacher_pred, features_t = teacher_gen(mask_img)  # (B, C, H, W) 형태의 Teacher 출력
                 f1_t, f2_t, f3_t, f4_t = features_t["x1"], features_t["x2"], features_t["x3"], features_t["x4"]
 
-            original_kd_loss = mae(teacher_pred, I_pred) * 20
+            original_kd_loss = mae(teacher_pred, I_pred) * 10
 
             ### feature KD loss
             feature_kd_loss = vid_loss_1(f1_s, f1_t) + vid_loss_2(f2_s, f2_t) + vid_loss_3(f3_s, f3_t) + vid_loss_4(f4_s, f4_t)
@@ -335,7 +335,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
 
 if __name__ == '__main__':
-    NAME_DATASET = 'HKdb-2'
+    NAME_DATASET = 'SDdb-1'
     SAVE_BASE_DIR = '/content/drive/MyDrive/kd_afa_net/vid_kd/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')
@@ -368,7 +368,7 @@ if __name__ == '__main__':
         parser.add_argument('--test_batch_size', type=int, help='batch size of testing data', default=16)
         parser.add_argument('--epochs', type=int, help='number of epoches', default=600)
         parser.add_argument('--lr_G', type=float, help='generator learning rate', default=0.0004)
-        parser.add_argument('--lr_D', type=float, help='discriminator learning rate', default=0.000004)
+        parser.add_argument('--lr_D', type=float, help='discriminator learning rate', default=0.000002)
         parser.add_argument('--alpha', type=float, help='learning rate decay for discriminator', default=0.1)
         parser.add_argument('--load_pretrain', type=bool, help='load pretrain weight', default=False)  # pretrain !!
         parser.add_argument('--test_flag', type=bool, help='testing while training', default=False)
