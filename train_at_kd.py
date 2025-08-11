@@ -15,7 +15,7 @@ from models.build4 import build_model, ImagePool
 from utils.loss import *
 from models.Discriminator_ml import MsImageDis
 from tensorboardX import SummaryWriter
-from dataset import dataset_norm
+from dataset import dataset_norm_mmcbnu
 import argparse
 from datetime import datetime
 from torch.utils.data import Dataset, DataLoader, TensorDataset
@@ -99,7 +99,7 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
 
             gt, mask_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0)
 
-            iner_img = gt[:, :, :, 32:32 + 128]  # 가로로 32~160 pixel
+            iner_img = gt[:, :, :, 50:50 + 92]
 
             ## Generate Image
             I_pred, _ = gen(mask_img)  # 생성된 image(2, 3, 192, 192), 중간 feature map
@@ -112,11 +112,11 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
             dis_loss.backward()
             opt_dis.step()  # 가중치 update
 
-            for _ in range(2):
+            for _ in range(1):
                 I_pred, features_s = gen(mask_img)
                 f1_s, f2_s, f3_s, f4_s = features_s["x1"], features_s["x2"], features_s["x3"], features_s["x4"]
 
-                mask_pred = I_pred[:, :, :, 32:32 + 128]  # 생성된 image의 일부분 선택
+                mask_pred = I_pred[:, :, :, 50:50 + 92]  # 생성된 image의 일부분 선택
 
                 # Pixel Reconstruction Loss
                 pixel_rec_loss = mae(I_pred, gt) * 20  # pixel 재구성 손실
@@ -126,13 +126,13 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
                                (iner_img.cuda(0) + 1) / 2.0) * 0.5 / batchSize  # 텍스처 일관성 손실
 
                 ### SSIM loss
-                left_loss = ssim_loss(I_pred[:, :, :, 0:32], I_pred[:, :, :, 32:64])
-                right_loss = ssim_loss(I_pred[:, :, :, 160:192], I_pred[:, :, :, 128:160])
+                left_loss = ssim_loss(I_pred[:, :, :, 0:50], I_pred[:, :, :, 50:100])
+                right_loss = ssim_loss(I_pred[:, :, :, 142:192], I_pred[:, :, :, 92:142])
                 total_ssim_loss = left_loss + right_loss
 
                 ### Sobel loss
-                sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
-                sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
+                sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:50], gt[:, :, :, 0:50])
+                sobel_right_loss = sobel_loss(I_pred[:, :, :, 142:192], gt[:, :, :, 142:192])
                 total_sobel_loss = sobel_left_loss + sobel_right_loss
 
                 sobel_loss_weight = 5.0
@@ -240,14 +240,14 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
             gt, mask_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0)
 
-            iner_img = gt[:, :, :, 32:32 + 128]
+            iner_img = gt[:, :, :, 50:50 + 92]
 
             ## Generate Image
             with torch.no_grad():
                 I_pred, features_s = gen(mask_img)
                 f1_s, f2_s, f3_s, f4_s = features_s["x1"], features_s["x2"], features_s["x3"], features_s["x4"]
 
-            mask_pred = I_pred[:, :, :, 32:32 + 128]
+            mask_pred = I_pred[:, :, :, 50:50 + 92]
 
             ## Compute losses
             ## Update Discriminator
@@ -262,13 +262,13 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
             mrf_loss = mrf((mask_pred.cuda(0) + 1) / 2.0, (iner_img.cuda(0) + 1) / 2.0) * 0.5 / batchSize
 
             ### SSIM loss
-            left_loss = ssim_loss(I_pred[:, :, :, 0:32], I_pred[:, :, :, 32:64])
-            right_loss = ssim_loss(I_pred[:, :, :, 160:192], I_pred[:, :, :, 128:160])
+            left_loss = ssim_loss(I_pred[:, :, :, 0:50], I_pred[:, :, :, 50:100])
+            right_loss = ssim_loss(I_pred[:, :, :, 142:192], I_pred[:, :, :, 92:142])
             total_ssim_loss = left_loss + right_loss
 
             ### Sobel loss
-            sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:32], gt[:, :, :, 0:32])
-            sobel_right_loss = sobel_loss(I_pred[:, :, :, 160:192], gt[:, :, :, 160:192])
+            sobel_left_loss = sobel_loss(I_pred[:, :, :, 0:50], gt[:, :, :, 0:50])
+            sobel_right_loss = sobel_loss(I_pred[:, :, :, 142:192], gt[:, :, :, 142:192])
             total_sobel_loss = sobel_left_loss + sobel_right_loss
 
             sobel_loss_weight = 5.0
@@ -337,7 +337,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
 
 if __name__ == '__main__':
-    NAME_DATASET = 'SDdb-2'
+    NAME_DATASET = 'mmcbnu-1'
     SAVE_BASE_DIR = '/content/drive/MyDrive/kd_afa_net/at_kd/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')
@@ -351,6 +351,10 @@ if __name__ == '__main__':
     elif NAME_DATASET == 'SDdb-1':
         best_epoch = 600
     elif NAME_DATASET == 'SDdb-2':
+        best_epoch = 500
+    elif NAME_DATASET == 'mmcbnu-1':
+        best_epoch = 500
+    elif NAME_DATASET == 'mmcbnu-2':
         best_epoch = 500
     else:
         raise Exception("에러 메시지 : 잘못된 NAME_DATASET이 입력되었습니다.")
@@ -369,8 +373,8 @@ if __name__ == '__main__':
         parser.add_argument('--train_batch_size', type=int, help='batch size of training data', default=8)
         parser.add_argument('--test_batch_size', type=int, help='batch size of testing data', default=16)
         parser.add_argument('--epochs', type=int, help='number of epoches', default=600)
-        parser.add_argument('--lr_G', type=float, help='generator learning rate', default=0.0004)
-        parser.add_argument('--lr_D', type=float, help='discriminator learning rate', default=0.000002)
+        parser.add_argument('--lr_G', type=float, help='generator learning rate', default=0.00005)
+        parser.add_argument('--lr_D', type=float, help='discriminator learning rate', default=0.000005)
         parser.add_argument('--alpha', type=float, help='learning rate decay for discriminator', default=0.1)
         parser.add_argument('--load_pretrain', type=bool, help='load pretrain weight', default=False)  # pretrain !!
         parser.add_argument('--test_flag', type=bool, help='testing while training', default=False)
@@ -410,6 +414,9 @@ if __name__ == '__main__':
     elif NAME_DATASET == 'SDdb-1' or NAME_DATASET == 'SDdb-2':
         modified_NAME_DATASET = NAME_DATASET.replace('-', '_')
         db_dir = join('SD-db', modified_NAME_DATASET)
+    elif NAME_DATASET == 'mmcbnu-1' or NAME_DATASET == 'mmcbnu-2':
+        base_dir = join(base_dir, 'mmcbnu6000')
+        db_dir = NAME_DATASET
     else:
         raise Exception("에러 메시지 : 잘못된 db_dir이 입력되었습니다.")
 
@@ -522,14 +529,14 @@ if __name__ == '__main__':
     transformations_valid = transforms.Compose(
         [torchvision.transforms.Resize((192, 192)), ToTensor(), Normalize(mean, std)])
 
-    train_data = dataset_norm(root=args.train_data_dir, transforms=transformations, imgSize=192, inputsize=128,
+    train_data = dataset_norm_mmcbnu(root=args.train_data_dir, transforms=transformations, imgSize=192, inputsize=92,
                               imglist1=train_ls_original,  # First list of images
                               imglist2=train_ls_mask,  # Second list of images
                               imglist3=train_ls_clahe)  # 24.09.20 수정
     train_loader = DataLoader(train_data, batch_size=args.train_batch_size, shuffle=True, num_workers=4)
     print('train data: %d images' % (len(train_loader.dataset)))
 
-    valid_data = dataset_norm(root=args.train_data_dir, transforms=transformations_valid, imgSize=192, inputsize=128,
+    valid_data = dataset_norm_mmcbnu(root=args.train_data_dir, transforms=transformations_valid, imgSize=192, inputsize=92,
                               imglist1=valid_ls_original,  # First list of images
                               imglist2=valid_ls_mask,  # Second list of images
                               imglist3=valid_ls_clahe)  # Third list of images)
