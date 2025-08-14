@@ -198,16 +198,16 @@ class dataset_norm_input_ab(Dataset):
 
         # 각 경로에서 이미지를 그레이스케일로 로드
         img1 = Image.open(self.img_list1[index]).convert("L")
-        img2 = Image.open(self.img_list2[index]).convert("L")
-        # img3 = Image.open(self.img_list3[index]).convert("L")
+        # img2 = Image.open(self.img_list2[index]).convert("L")
+        img3 = Image.open(self.img_list3[index]).convert("L")
 
         # 이미지를 numpy 배열로 변환
         img1 = np.array(img1)
-        img2 = np.array(img2)
-        # img3 = np.array(img3)
+        # img2 = np.array(img2)
+        img3 = np.array(img3)
 
         # 세 이미지 채널을 결합하여 RGB 이미지를 만듭니다.
-        img_cat = np.stack([img1, img1, img2], axis=-1)  # (H, W, C) 형식으로 결합
+        img_cat = np.stack([img1, img1, img3], axis=-1)  # (H, W, C) 형식으로 결합
 
         # 변환을 적용하기 위해 이미지를 PIL 이미지로 변환
         img_cat = Image.fromarray(img_cat)
