@@ -78,7 +78,6 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer, teacher_gen):
     mrf = IDMRFLoss(device=0)  # 텍스처 일관성 평가
     ssim_loss = SSIM_loss().cuda(0)  # 구조적 유사성
     sobel_loss = Sobel_loss().cuda(0)
-    at_loss = AT(p=2).cuda(0)
 
     acc_pixel_rec_loss = 0
     acc_mrf_loss = 0
@@ -219,7 +218,6 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
     mrf = IDMRFLoss(device=0)
     ssim_loss = SSIM_loss().cuda(0)
     sobel_loss = Sobel_loss().cuda(0)
-    at_loss = AT(p=2).cuda(0)
 
     acc_pixel_rec_loss = 0
     acc_mrf_loss = 0
@@ -337,7 +335,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer, teacher_gen):
 
 
 if __name__ == '__main__':
-    NAME_DATASET = 'mmcbnu-1'
+    NAME_DATASET = 'mmcbnu-2'
     SAVE_BASE_DIR = '/content/drive/MyDrive/kd_afa_net/ofd_kd/output'
 
     SAVE_WEIGHT_DIR = join(SAVE_BASE_DIR, NAME_DATASET, 'checkpoints')
