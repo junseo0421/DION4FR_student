@@ -397,8 +397,8 @@ if __name__ == '__main__':
     # gen = Generator7(pred_step, device=0).cuda(0)
     dis = MsImageDis().cuda()
 
-    opt_gen = optim.Adam(gen.parameters(), lr=args.lr / 2, betas=(0, 0.9), weight_decay=1e-4)
-    opt_dis = optim.Adam(dis.parameters(), lr=args.lr * 2, betas=(0, 0.9), weight_decay=1e-4)
+    opt_gen = optim.Adam(gen.parameters(), lr=args.lr / 2, betas=(0.0, 0.9), weight_decay=1e-4)
+    opt_dis = optim.Adam(dis.parameters(), lr=args.lr * 2, betas=(0.0, 0.9), weight_decay=1e-4)
 
     # Load pre-trained weight
     if args.load_pretrain:
