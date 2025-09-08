@@ -81,13 +81,13 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):
 
         # gt, mask_img, iner_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0), Variable(iner_img).cuda(0)
         gt, mask_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0)
-        iner_img = gt[:, :, :, 32:32 + 128]  # 가로로 32~160 pixel
+        iner_img = gt[:, :, :, 50:50 + 92]  # 가로로 32~160 pixel
 
         ## Generate Image
         I_pred, f_de = gen(mask_img)  # 생성된 image, 중간 feature map
         f_en = gen(iner_img, only_encode=True)  #iner_img(GT)를 encoding하여 feature map을 얻음
 
-        mask_pred = I_pred[:, :, :, 32:32 + 128]  # 생성된 image의 일부분 선택
+        mask_pred = I_pred[:, :, :, 50:50 + 92]  # 생성된 image의 일부분 선택
 
         ## Compute losses
         ## Update Discriminator
@@ -107,9 +107,9 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):
         feat_rec_loss = mae(f_de, f_en.detach())  # 생성된 imgae의 feature map과 gt의 feature map 간의 L1 손실
 
         ### SSIM loss
-        left_loss = ssim_loss(I_pred[:, :, :, 0:32], I_pred[:, :, :, 32:64])
-        right_loss = ssim_loss(I_pred[:, :, :, 160:192], I_pred[:, :, :, 128:160])
-        total_ssim_loss = left_loss+right_loss
+        left_loss = ssim_loss(I_pred[:, :, :, 0:50], I_pred[:, :, :, 50:100])
+        right_loss = ssim_loss(I_pred[:, :, :, 142:192], I_pred[:, :, :, 92:142])
+        total_ssim_loss = left_loss + right_loss
 
         # ## Update Generator
         gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
@@ -177,7 +177,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
 
         # gt, mask_img, iner_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0), Variable(iner_img).cuda(0)
         gt, mask_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0)
-        iner_img = gt[:, :, :, 32:32 + 128]
+        iner_img = gt[:, :, :, 50:50 + 92]
         # I_groundtruth = torch.cat((I_l, I_r), 3)  # shape: B,C,H,W
 
         ## feature size match f_de and f_en
@@ -188,7 +188,7 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
         with torch.no_grad():
             f_en = gen(iner_img, only_encode=True)
 
-        mask_pred = I_pred[:, :, :, 32:32 + 128]
+        mask_pred = I_pred[:, :, :, 50:50 + 92]
 
         ## Compute losses
         ## Update Discriminator
@@ -208,8 +208,8 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
         # ## Update Generator
 
         ### SSIM loss
-        left_loss = ssim_loss(I_pred[:, :, :, 0:32], I_pred[:, :, :, 32:64])
-        right_loss = ssim_loss(I_pred[:, :, :, 160:192], I_pred[:, :, :, 128:160])
+        left_loss = ssim_loss(I_pred[:, :, :, 0:50], I_pred[:, :, :, 50:100])
+        right_loss = ssim_loss(I_pred[:, :, :, 142:192], I_pred[:, :, :, 92:142])
         total_ssim_loss = left_loss + right_loss
 
         gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
@@ -414,12 +414,12 @@ if __name__ == '__main__':
     transformations = transforms.Compose(
         [torchvision.transforms.RandomResizedCrop((192, 192), scale=(0.8, 1.2), ratio=(0.75, 1.3333333333333333), ),
          CenterCrop(192), ToTensor(), Normalize(mean, std)])  # augmentation
-    train_data = dataset_norm_mmcbnu_ori(root=args.train_data_dir, transforms=transformations, imgSize=192, inputsize=128,
+    train_data = dataset_norm_mmcbnu_ori(root=args.train_data_dir, transforms=transformations, imgSize=192, inputsize=92,
                               imglist1=train_ls_original) 
     train_loader = DataLoader(train_data, batch_size=args.train_batch_size, shuffle=True, num_workers=4)
     print('train data: %d images' % (len(train_loader.dataset)))
 
-    valid_data = dataset_norm_mmcbnu_ori(root=args.train_data_dir, transforms=transformations, imgSize=192, inputsize=128,
+    valid_data = dataset_norm_mmcbnu_ori(root=args.train_data_dir, transforms=transformations, imgSize=192, inputsize=92,
                               imglist1=valid_ls_original)  
     valid_loader = DataLoader(valid_data, batch_size=args.train_batch_size, shuffle=True, num_workers=4)
     print('valid data: %d images' % (len(valid_loader.dataset)))

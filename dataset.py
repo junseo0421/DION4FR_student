@@ -198,6 +198,8 @@ class dataset_norm_mmcbnu_ori(Dataset):
         img = Image.open(self.img_list1[index]).convert("RGB")
         i = (self.imgSize - self.inputsize)//2  # 50
 
+        img = self.transforms(img)
+
         ## 2023 11 14 홍진성 마스킹 수정 (너비 방향으로만 처리)
         iner_img = img[:, :, i:i+self.inputsize]
         mask_img = np.ones((3, self.imgSize, self.imgSize))
