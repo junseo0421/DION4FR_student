@@ -54,6 +54,96 @@ def print_swin_lstm_parameters(gen):
     total_params = count_parameters(gen)
     print(f"Total parameters in the U-Transformer model: {total_params}")
 
+import torch
+import torch.nn.functional as F
+
+import torch
+import torch.nn.functional as F
+
+def roi_align_token_columns_from_fde(
+    f_de,
+    img_w: int = 192,
+    crop_left: int = 50,
+    crop_w: int = 92,
+    target_w: int = 3,   # 보통 f_en.shape[2]를 넣어주세요
+    target_h: int | None = None,  # 기본은 f_de의 H 유지(대개 6)
+    padding_mode: str = "border",  # 경계 안전
+    align_corners: bool = True
+):
+    """
+    f_de : (B,H,W,C)  또는 (B,S,N,C)  또는 (B,N,C)/(B,6,6,C)
+           내부 토큰 격자가 HxW라고 가정(대개 6x6; 코드가 자동 추정)
+    반환 : (B, Ht, target_w, C)  # 가로를 정확히 crop 위치/폭에 맞춰 샘플링
+    """
+    # 1) (B,H,W,C)로 정규화
+    if f_de.dim() == 4:
+        B, a, b, c = f_de.shape
+        # (B,S,N,C) 케이스인지 (B,H,W,C) 케이스인지 구분
+        # (B,S,N,C)라면 b가 N=H*W여야 함
+        if a > 1 and b != a and (int((b)**0.5)**2 == b):  # heuristic
+            # (B,S,N,C) -> (B,S,H,W,C) -> S축 풀어 (B,H,W,C)로 합치기보단 S=1로 취급 불가
+            B, S, N, C = f_de.shape
+            H = W = int(N**0.5)
+            f = f_de.view(B, S, H, W, C)
+            # S>1이면 일반적으로 stage 축이거나 스택인데, 여기서는 한 덩어리로 다룰 수 없으니
+            # 보통 S==1이거나, S차원 평균/선택을 해야 합니다. 여기서는 첫 S만 사용 (필요시 바꾸세요).
+            f = f[:, 0]  # (B,H,W,C)
+        else:
+            # (B,H,W,C)
+            f = f_de
+            B, H, W, C = f.shape
+    elif f_de.dim() == 3:
+        # (B,N,C) -> (B,H,W,C)
+        B, N, C = f_de.shape
+        H = W = int(N**0.5)
+        assert H * W == N, "N은 완전제곱이어야 합니다."
+        f = f_de.view(B, H, W, C)
+    elif f_de.dim() == 5:
+        # (B,6,6,C) 같은 형식이면 (B,H,W,C)로
+        B, H, W, C, *rest = f_de.shape + (None,)
+        if rest[0] is not None:
+            raise ValueError("지원하지 않는 5D 형식입니다.")
+        f = f_de
+    else:
+        raise ValueError("지원 shape: (B,H,W,C), (B,S,N,C), (B,N,C), (B,H,W,C-like)")
+
+    # target_h 기본은 기존 H 유지
+    if target_h is None:
+        target_h = H
+
+    # 2) grid_sample 입력: (N,C,H,W)
+    f_nchw = f.permute(0, 3, 1, 2).contiguous()  # (B,C,H,W)
+
+    # 3) crop 좌우 경계를 토큰 좌표(0..W-1)로 매핑
+    x0_tok = (crop_left / img_w) * (W - 1)
+    x1_tok = ((crop_left + crop_w) / img_w) * (W - 1)
+
+    # 4) 목표 가로 해상도(target_w)만큼 균등 샘플 포인트
+    xs = torch.linspace(x0_tok, x1_tok, steps=target_w, device=f_nchw.device, dtype=f_nchw.dtype)
+    ys = torch.linspace(0, H - 1, steps=target_h, device=f_nchw.device, dtype=f_nchw.dtype)
+
+    # 5) 정규화 좌표(-1..1)로 변환 (align_corners=True 기준)
+    xs_n = 2.0 * xs / (W - 1) - 1.0
+    ys_n = 2.0 * ys / (H - 1) - 1.0
+
+    # 6) 샘플링 그리드 (B, target_h, target_w, 2)
+    # torch>=1.10: indexing='ij' 지원. 낮은 버전이면 기본 meshgrid로 대체
+    try:
+        grid_y, grid_x = torch.meshgrid(ys_n, xs_n, indexing='ij')
+    except TypeError:
+        grid_y, grid_x = torch.meshgrid(ys_n, xs_n)
+    grid = torch.stack([grid_x, grid_y], dim=-1).unsqueeze(0).repeat(B, 1, 1, 1)
+
+    # 7) grid_sample: (B,C,target_h,target_w)
+    f_crop = F.grid_sample(
+        f_nchw, grid, mode='bilinear', align_corners=align_corners, padding_mode=padding_mode
+    )
+
+    # 8) (B,target_h,target_w,C)로 복원
+    f_crop = f_crop.permute(0, 2, 3, 1).contiguous()
+    return f_crop
+
+
 
 # Training
 def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):
@@ -104,7 +194,8 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):
         mrf_loss = mrf((mask_pred.cuda(0) + 1) / 2.0, (iner_img.cuda(0) + 1) / 2.0) * 0.5 / batchSize  # 텍스처 일관성 손실
 
         # Feature Reconstruction Loss
-        feat_rec_loss = mae(f_de, f_en.detach())  # 생성된 imgae의 feature map과 gt의 feature map 간의 L1 손실
+        f_de_aligned = roi_align_token_columns_from_fde(f_de)
+        feat_rec_loss = mae(f_de_aligned, f_en.detach())  # 생성된 imgae의 feature map과 gt의 feature map 간의 L1 손실
 
         ### SSIM loss
         left_loss = ssim_loss(I_pred[:, :, :, 0:50], I_pred[:, :, :, 50:100])
@@ -203,7 +294,8 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
         mrf_loss = mrf((mask_pred.cuda(0) + 1) / 2.0, (iner_img.cuda(0) + 1) / 2.0) * 0.5 / batchSize
 
         # Feature Reconstruction Loss
-        feat_rec_loss = mae(f_de, f_en.detach())
+        f_de_aligned = roi_align_token_columns_from_fde(f_de)
+        feat_rec_loss = mae(f_de_aligned, f_en.detach())
 
         # ## Update Generator
 

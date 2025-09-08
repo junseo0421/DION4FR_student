@@ -126,7 +126,9 @@ class LSTM_small2(nn.Module):
         out_decode = feature.view(B, self.height, self.width, self.channel)
 
         # 2023-11-16 Consider only the left and right regions
-        out_decode = out_decode[:, :, 1:5, :]
+
+        ############ mmcbnu를 위해 주석 처리 ##########
+        # out_decode = out_decode[:, :, 1:5, :] 
 
         return feature, out_decode
 
