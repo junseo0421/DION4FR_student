@@ -21,6 +21,7 @@ from datetime import datetime
 from torch.utils.data import Dataset, DataLoader, TensorDataset
 import random
 from loss import *
+from tqdm import tqdm
 
 from utils.utils import *
 
@@ -164,67 +165,65 @@ def train(gen, dis, opt_gen, opt_dis, epoch, train_loader, writer):
 
     total_gen_loss = 0
 
-    for batch_idx, (gt, mask_img) in enumerate(train_loader):
+    with tqdm(total=len(train_loader), desc=f"Training Epoch {epoch}") as pbar:
+        for batch_idx, (gt, mask_img) in enumerate(train_loader):
 
-        batchSize = mask_img.shape[0]
-        imgSize = mask_img.shape[2]
+            batchSize = mask_img.shape[0]
+            imgSize = mask_img.shape[2]
 
-        # gt, mask_img, iner_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0), Variable(iner_img).cuda(0)
-        gt, mask_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0)
-        iner_img = gt[:, :, :, 50:50 + 92]  # 가로로 32~160 pixel
+            # gt, mask_img, iner_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0), Variable(iner_img).cuda(0)
+            gt, mask_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0)
+            iner_img = gt[:, :, :, 50:50 + 92]  # 가로로 32~160 pixel
 
-        ## Generate Image
-        I_pred, f_de = gen(mask_img)  # 생성된 image, 중간 feature map
-        f_en = gen(iner_img, only_encode=True)  #iner_img(GT)를 encoding하여 feature map을 얻음
+            ## Generate Image
+            I_pred, f_de = gen(mask_img)  # 생성된 image, 중간 feature map
+            f_en = gen(iner_img, only_encode=True)  #iner_img(GT)를 encoding하여 feature map을 얻음
 
-        mask_pred = I_pred[:, :, :, 50:50 + 92]  # 생성된 image의 일부분 선택
+            mask_pred = I_pred[:, :, :, 50:50 + 92]  # 생성된 image의 일부분 선택
 
-        ## Compute losses
-        ## Update Discriminator
-        opt_dis.zero_grad()
-        dis_adv_loss = dis.calc_dis_loss(I_pred.detach(), gt)  # 생성된 image와 gt와의 구별 능력 학습
-        dis_loss = dis_adv_loss
-        dis_loss.backward()
-        opt_dis.step()  # 가중치 update
+            ## Compute losses
+            ## Update Discriminator
+            opt_dis.zero_grad()
+            dis_adv_loss = dis.calc_dis_loss(I_pred.detach(), gt)  # 생성된 image와 gt와의 구별 능력 학습
+            dis_loss = dis_adv_loss
+            dis_loss.backward()
+            opt_dis.step()  # 가중치 update
 
-        # Pixel Reconstruction Loss
-        pixel_rec_loss = mae(I_pred, gt) * 20  # pixel 재구성 손실
+            # Pixel Reconstruction Loss
+            pixel_rec_loss = mae(I_pred, gt) * 20  # pixel 재구성 손실
 
-        # Texture Consistency Loss (IDMRF Loss)
-        mrf_loss = mrf((mask_pred.cuda(0) + 1) / 2.0, (iner_img.cuda(0) + 1) / 2.0) * 0.5 / batchSize  # 텍스처 일관성 손실
+            # Texture Consistency Loss (IDMRF Loss)
+            mrf_loss = mrf((mask_pred.cuda(0) + 1) / 2.0, (iner_img.cuda(0) + 1) / 2.0) * 0.5 / batchSize  # 텍스처 일관성 손실
 
-        # Feature Reconstruction Loss
-        f_de_aligned = roi_align_token_columns_from_fde(f_de)
-        feat_rec_loss = mae(f_de_aligned, f_en.detach())  # 생성된 imgae의 feature map과 gt의 feature map 간의 L1 손실
+            # Feature Reconstruction Loss
+            f_de_aligned = roi_align_token_columns_from_fde(f_de)
+            feat_rec_loss = mae(f_de_aligned, f_en.detach())  # 생성된 imgae의 feature map과 gt의 feature map 간의 L1 손실
 
-        ### SSIM loss
-        left_loss = ssim_loss(I_pred[:, :, :, 0:50], I_pred[:, :, :, 50:100])
-        right_loss = ssim_loss(I_pred[:, :, :, 142:192], I_pred[:, :, :, 92:142])
-        total_ssim_loss = left_loss + right_loss
+            ### SSIM loss
+            left_loss = ssim_loss(I_pred[:, :, :, 0:50], I_pred[:, :, :, 50:100])
+            right_loss = ssim_loss(I_pred[:, :, :, 142:192], I_pred[:, :, :, 92:142])
+            total_ssim_loss = left_loss + right_loss
 
-        # ## Update Generator
-        gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
+            # ## Update Generator
+            gen_adv_loss = dis.calc_gen_loss(I_pred, gt)  # generator에 대한 적대적 손실
 
-        gen_loss = pixel_rec_loss + gen_adv_loss + feat_rec_loss + mrf_loss.cuda(0) + total_ssim_loss
-        opt_gen.zero_grad()
-        gen_loss.backward()
-        opt_gen.step()
+            gen_loss = pixel_rec_loss + gen_adv_loss + feat_rec_loss + mrf_loss.cuda(0) + total_ssim_loss
+            opt_gen.zero_grad()
+            gen_loss.backward()
+            opt_gen.step()
 
-        acc_pixel_rec_loss += pixel_rec_loss.data
-        acc_gen_adv_loss += gen_adv_loss.data
-        acc_mrf_loss += mrf_loss.data
-        acc_feat_rec_loss += feat_rec_loss.data
-        acc_dis_adv_loss += dis_adv_loss.data
-        acc_ssim_loss += total_ssim_loss
+            acc_pixel_rec_loss += pixel_rec_loss.data
+            acc_gen_adv_loss += gen_adv_loss.data
+            acc_mrf_loss += mrf_loss.data
+            acc_feat_rec_loss += feat_rec_loss.data
+            acc_dis_adv_loss += dis_adv_loss.data
+            acc_ssim_loss += total_ssim_loss
 
-        total_gen_loss += gen_loss.data
+            total_gen_loss += gen_loss.data
 
-        if batch_idx % 10 == 0:
-            print("train iter %d" % batch_idx)
-            print('generate_loss:', gen_loss.item())
-            print('dis_loss:', dis_loss.item(
-
-            ))
+            # tqdm의 상태 업데이트
+            pbar.update(1)
+            pbar.set_postfix({'gen_loss': gen_loss.item(), 'dis_loss': dis_loss.item()})
 
     ## Tensor board
     writer.add_scalars('train/generator_loss',
@@ -262,62 +261,66 @@ def valid(gen, dis, opt_gen, opt_dis, epoch, valid_loader, writer):
 
     total_gen_loss = 0
 
-    for batch_idx, (gt, mask_img) in enumerate(valid_loader):
-        batchSize = mask_img.shape[0]
-        imgSize = mask_img.shape[2]
+    with tqdm(total=len(valid_loader), desc=f"Validation Epoch {epoch}") as pbar:
+        for batch_idx, (gt, mask_img) in enumerate(valid_loader):
+            batchSize = mask_img.shape[0]
+            imgSize = mask_img.shape[2]
 
-        # gt, mask_img, iner_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0), Variable(iner_img).cuda(0)
-        gt, mask_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0)
-        iner_img = gt[:, :, :, 50:50 + 92]
-        # I_groundtruth = torch.cat((I_l, I_r), 3)  # shape: B,C,H,W
+            # gt, mask_img, iner_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0), Variable(iner_img).cuda(0)
+            gt, mask_img = Variable(gt).cuda(0), Variable(mask_img.type(torch.FloatTensor)).cuda(0)
+            iner_img = gt[:, :, :, 50:50 + 92]
+            # I_groundtruth = torch.cat((I_l, I_r), 3)  # shape: B,C,H,W
 
-        ## feature size match f_de and f_en
-        ## Generate Image
-        with torch.no_grad():
-            I_pred, f_de = gen(mask_img)
+            ## feature size match f_de and f_en
+            ## Generate Image
+            with torch.no_grad():
+                I_pred, f_de = gen(mask_img)
 
-        with torch.no_grad():
-            f_en = gen(iner_img, only_encode=True)
+            with torch.no_grad():
+                f_en = gen(iner_img, only_encode=True)
 
-        mask_pred = I_pred[:, :, :, 50:50 + 92]
+            mask_pred = I_pred[:, :, :, 50:50 + 92]
 
-        ## Compute losses
-        ## Update Discriminator
-        opt_dis.zero_grad()
-        dis_adv_loss = dis.calc_dis_loss(I_pred.detach(), gt)
-        dis_loss = dis_adv_loss
+            ## Compute losses
+            ## Update Discriminator
+            opt_dis.zero_grad()
+            dis_adv_loss = dis.calc_dis_loss(I_pred.detach(), gt)
+            dis_loss = dis_adv_loss
 
-        # Pixel Reconstruction Loss
-        pixel_rec_loss = mae(I_pred, gt) * 20
+            # Pixel Reconstruction Loss
+            pixel_rec_loss = mae(I_pred, gt) * 20
 
-        # Texture Consistency Loss (IDMRF Loss)
-        mrf_loss = mrf((mask_pred.cuda(0) + 1) / 2.0, (iner_img.cuda(0) + 1) / 2.0) * 0.5 / batchSize
+            # Texture Consistency Loss (IDMRF Loss)
+            mrf_loss = mrf((mask_pred.cuda(0) + 1) / 2.0, (iner_img.cuda(0) + 1) / 2.0) * 0.5 / batchSize
 
-        # Feature Reconstruction Loss
-        f_de_aligned = roi_align_token_columns_from_fde(f_de)
-        feat_rec_loss = mae(f_de_aligned, f_en.detach())
+            # Feature Reconstruction Loss
+            f_de_aligned = roi_align_token_columns_from_fde(f_de)
+            feat_rec_loss = mae(f_de_aligned, f_en.detach())
 
-        # ## Update Generator
+            # ## Update Generator
 
-        ### SSIM loss
-        left_loss = ssim_loss(I_pred[:, :, :, 0:50], I_pred[:, :, :, 50:100])
-        right_loss = ssim_loss(I_pred[:, :, :, 142:192], I_pred[:, :, :, 92:142])
-        total_ssim_loss = left_loss + right_loss
+            ### SSIM loss
+            left_loss = ssim_loss(I_pred[:, :, :, 0:50], I_pred[:, :, :, 50:100])
+            right_loss = ssim_loss(I_pred[:, :, :, 142:192], I_pred[:, :, :, 92:142])
+            total_ssim_loss = left_loss + right_loss
 
-        gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
+            gen_adv_loss = dis.calc_gen_loss(I_pred, gt)
 
-        gen_loss = pixel_rec_loss + gen_adv_loss + feat_rec_loss + mrf_loss.cuda(0) + total_ssim_loss
-        opt_gen.zero_grad()
+            gen_loss = pixel_rec_loss + gen_adv_loss + feat_rec_loss + mrf_loss.cuda(0) + total_ssim_loss
+            opt_gen.zero_grad()
 
-        acc_pixel_rec_loss += pixel_rec_loss.data
-        acc_gen_adv_loss += gen_adv_loss.data
-        acc_mrf_loss += mrf_loss.data
-        acc_feat_rec_loss += feat_rec_loss.data
-        acc_dis_adv_loss += dis_adv_loss.data
+            acc_pixel_rec_loss += pixel_rec_loss.data
+            acc_gen_adv_loss += gen_adv_loss.data
+            acc_mrf_loss += mrf_loss.data
+            acc_feat_rec_loss += feat_rec_loss.data
+            acc_dis_adv_loss += dis_adv_loss.data
 
-        acc_ssim_loss += total_ssim_loss.data
-        total_gen_loss += gen_loss.data
+            acc_ssim_loss += total_ssim_loss.data
+            total_gen_loss += gen_loss.data
 
+            # tqdm의 상태 업데이트
+            pbar.update(1)
+            pbar.set_postfix({'gen_loss': gen_loss.item(), 'dis_loss': dis_adv_loss.item()})
 
     ## Tensor board
     writer.add_scalars('valid/generator_loss',
