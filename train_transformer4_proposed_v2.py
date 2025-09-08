@@ -311,7 +311,6 @@ if __name__ == '__main__':
         modified_NAME_DATASET = NAME_DATASET.replace('-', '_')
         db_dir = join('SD-db', modified_NAME_DATASET)
     elif NAME_DATASET == 'mmcbnu-1' or NAME_DATASET == 'mmcbnu-2':
-        base_dir = join(base_dir, 'mmcbnu6000')
         db_dir = NAME_DATASET
     else:
         raise Exception("에러 메시지 : 잘못된 db_dir이 입력되었습니다.")
@@ -397,7 +396,7 @@ if __name__ == '__main__':
 
     # gen = Generator7(pred_step, device=0).cuda(0)
     dis = MsImageDis().cuda()
-    
+
     opt_gen = optim.Adam(gen.parameters(), lr=args.lr / 2, betas=(0, 0.9), weight_decay=1e-4)
     opt_dis = optim.Adam(dis.parameters(), lr=args.lr * 2, betas=(0, 0.9), weight_decay=1e-4)
 
