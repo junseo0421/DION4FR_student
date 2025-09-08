@@ -175,6 +175,40 @@ class dataset_norm_mmcbnu(Dataset):
         return self.size
 
 
+class dataset_norm_mmcbnu_ori(Dataset):
+    def __init__(self, root='', transforms=None, imgSize=192, inputsize=92, imglist1=[]):  # 24.09.20 수정
+        # --PARAMS--
+        # root: the path of the data
+        # crop: 'rand' or 'center' or 'none', which way to crop the image into target size
+        # imgSize: the size of the returned image if crop is not 'none'
+
+        #self.img_list = []
+        self.transforms = transforms
+        self.imgSize = imgSize
+        self.inputsize = inputsize
+
+        self.img_list1 = imglist1
+
+        self.size = len(self.img_list1)
+
+    def __getitem__(self, index):
+        index = index % self.size
+
+        # 각 경로에서 이미지를 그레이스케일로 로드
+        img = Image.open(self.img_list1[index]).convert("RGB")
+        i = (self.imgSize - self.inputsize)//2  # 50
+
+        ## 2023 11 14 홍진성 마스킹 수정 (너비 방향으로만 처리)
+        iner_img = img[:, :, i:i+self.inputsize]
+        mask_img = np.ones((3, self.imgSize, self.imgSize))
+        mask_img[:, :, i:i + self.inputsize] = iner_img
+
+        return img, mask_img
+
+    def __len__(self):
+        return self.size
+
+
 class dataset_norm_input_ab(Dataset):
     def __init__(self, root='', transforms=None, imgSize=192, inputsize=128, imglist1=[], imglist2=[], imglist3=[]):  # 24.09.20 수정
         # --PARAMS--
