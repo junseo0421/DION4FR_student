@@ -124,7 +124,9 @@ class LSTM_small2(nn.Module):
         feature = feature1.view(B, -1, self.channel)
         feature = self.norm_layer(feature)
         out_decode = feature.view(B, self.height, self.width, self.channel)
-        out_decode = out_decode[:, 1:5, 1:5, :]
+
+        ############ mmcbnu를 위해 주석 처리 ##########
+        # out_decode = out_decode[:, :, 1:5, :] 
 
         return feature, out_decode
 
@@ -756,19 +758,17 @@ class SwinTransformer4(nn.Module):
             x_out, H, W, x, Wh, Ww = layer(x, Wh, Ww)
             if i < 3:
                 x = x.view(B, Wh, Ww, -1)
-                #shortcutx = shortcut_x[2 - i].view(B, 16 * 2 ** i, 16 * 2 ** i, -1)[:, 2 ** (i + 1):14 * 2 ** i,
-                #            2 ** (i + 1):14 * 2 ** i, :]
-                #shortcutx = shortcut_x[2 - i].view(B, 16 * 2 ** i, 16 * 2 ** i, -1)[:, 2 ** (i + 2):3 * 2 ** (i + 2),
-                #            2 ** (i + 2):3 * 2 ** (i + 2), :]
-                shortcutx = shortcut_x[2 - i].view(B, Wh, Wh, -1)[:, 2**(i+1):10*2**i,2**(i+1):10*2**i,:]
-                #shortcutx = shortcut_x[2 - i].view(B, Wh-2**(i+2), Wh-2**(i+2), -1)[:, 2 ** (i + 1):10 * 2 ** i, 2 ** (i + 1):10 * 2 ** i,:]
+                
+                # shortcutx = shortcut_x[2 - i].view(B, Wh, Wh, -1)[:, 2**(i+1):10*2**i,2**(i+1):10*2**i,:]
+                
+                # merge = (x[:, 2**(i+1):10*2**i,2**(i+1):10*2**i,:] + shortcutx)/2
+                # x[:, 2**(i+1):10*2**i,2**(i+1):10*2**i,:] = merge
 
-                merge = (x[:, 2**(i+1):10*2**i,2**(i+1):10*2**i,:] + shortcutx)/2
-                x[:, 2**(i+1):10*2**i,2**(i+1):10*2**i,:] = merge
-                #merge=(x[:,2**(i+2):3*2**(i+2),2**(i+2):3*2**(i+2),:] + shortcutx) / 2
-                #x[:,2**(i+2):3*2**(i+2),2**(i+2):3*2**(i+2),:] = merge
-                #merge = (x[:,2**(i+1):14*2**i,2**(i+1):14*2**i,:] + shortcutx) / 2
-                #x[:,2**(i+1):14*2**i,2**(i+1):14*2**i,:] = merge
+                shortcutx = shortcut_x[2 - i].view(B, Wh, Wh, -1)[:, :,2**(i+1):10*2**i,:]
+                
+                merge = (x[:, :,2**(i+1):10*2**i,:] + shortcutx)/2
+                x[:, :,2**(i+1):10*2**i,:] = merge
+                
                 x = x.view(B, Wh*Ww, -1)
                 i = i + 1
 
@@ -787,7 +787,7 @@ class SwinTransformer4(nn.Module):
         #x = x.view(B, 8, 8, self.num_features)
         x = x.view(B, 4+2*self.pre_step, 4+2*self.pre_step, self.num_features)
 
-        x[:, 1:5, 1:5, :] = shortcut_x[3].view(B, 4+2*self.pre_step, 4+2*self.pre_step, self.num_features)[:, 1:5, 1:5, :]
+        x[:, :, 1:5, :] = shortcut_x[3].view(B, 4+2*self.pre_step, 4+2*self.pre_step, self.num_features)[:, :, 1:5, :]
         #iner=shortcut_x[3].view(B,4+2*self.pre_step,4+2*self.pre_step,self.num_features)[:,1:7,1:7,:]
         #x[:,1:7,1:7,:]=iner
         x = x.view(B, -1, self.num_features)
